@@ -85,6 +85,26 @@ def classify(req: InboundRequest) -> dict:
     return orchestrator.route({"message": req.message, "language": req.language})
 
 
+@app.post("/api/admin/seed")
+def run_seed(secret: str = "") -> dict:
+    """One-time DB seeder — requires ADMIN_SECRET or ENVIRONMENT != production."""
+    import os
+    admin_secret = os.getenv("ADMIN_SECRET", "antigravity-seed-2026")
+    env = os.getenv("ENVIRONMENT", "development")
+    if env == "production" and secret != admin_secret:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Forbidden")
+    from database.seed import seed_hospitals, seed_demo_patients
+    from database.connection import SessionLocal
+    session = SessionLocal()
+    try:
+        h = seed_hospitals(session)
+        p = seed_demo_patients(session)
+        return {"hospitals_seeded": h, "patients_seeded": p}
+    finally:
+        session.close()
+
+
 @app.get("/api/sectors")
 def sectors() -> dict:
     return {
