@@ -5,6 +5,7 @@ FastAPI entry point.
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 import sys
@@ -40,9 +41,12 @@ from routers.marketing import router as marketing_router  # noqa: E402
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Create tables on startup (dev convenience). Alembic handles prod migrations."""
-    logger.info("Creating database tables...")
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables ready.")
+    try:
+        logger.info("Creating database tables...")
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables ready.")
+    except Exception as e:
+        logger.warning(f"Database init skipped: {e}")
     yield
 
 
@@ -53,9 +57,12 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_origins = os.getenv("ALLOWED_ORIGINS", "*")
+_origin_list = ["*"] if _origins == "*" else [o.strip() for o in _origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_origin_list,
     allow_methods=["*"],
     allow_headers=["*"],
 )
