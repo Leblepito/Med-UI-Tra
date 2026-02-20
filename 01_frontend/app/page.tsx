@@ -68,6 +68,7 @@ const SECTORS = [
         btnKey: "secMedBtn",
         badge: "JCI ✓",
         badgeCls: "bg-sky-100 text-sky-700",
+        soon: false,
     },
     {
         icon: "🏖️",
@@ -79,6 +80,7 @@ const SECTORS = [
         btnKey: "secTravelBtn",
         badge: "Phuket",
         badgeCls: "bg-teal-100 text-teal-700",
+        soon: false,
     },
     {
         icon: "🏭",
