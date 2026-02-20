@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import Navbar from "../../components/Navbar";
 import { useLanguage } from "../../lib/LanguageContext";
+import type { TravelResponse } from "../../lib/api";
 
 const DESTINATIONS: Record<string, string[]> = {
     en: ["Phuket — Patong Beach", "Phuket — Kamala", "Phuket — Kata", "Koh Samui", "Krabi"],
@@ -26,6 +27,7 @@ export default function TravelPage() {
     const { t, lang, dir } = useLanguage();
     const [submitted, setSubmitted] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [travelResult, setTravelResult] = useState<TravelResponse | null>(null);
     const [form, setForm] = useState({
         full_name: "", phone: "", destination: "", check_in: "", check_out: "",
         guests: "2", notes: "",
@@ -43,8 +45,10 @@ export default function TravelPage() {
                 body: JSON.stringify({ ...form, language: lang }),
             });
             if (!res.ok) throw new Error("API error");
+            const data: TravelResponse = await res.json();
+            setTravelResult(data);
         } catch {
-            // demo fallback
+            setTravelResult(null);
         } finally {
             setLoading(false);
             setSubmitted(true);
@@ -91,15 +95,83 @@ export default function TravelPage() {
                     <p className="text-center text-slate-500 text-sm mb-8">{t("travelFormSub")}</p>
 
                     {submitted ? (
-                        <div className="rounded-2xl border border-teal-200 bg-teal-50 p-8 text-center animate-fade-up">
-                            <div className="text-4xl mb-3">🏖️</div>
-                            <h3 className="text-xl font-bold text-teal-800 mb-2">{t("travelSuccess")}</h3>
-                            <p className="text-teal-600 text-sm mb-5">{t("travelSuccessSub")}</p>
-                            <button onClick={() => setSubmitted(false)}
-                                className="px-5 py-2 rounded-xl bg-teal-600 text-white text-sm font-bold hover:bg-teal-500 transition-colors">
-                                {t("btnNewRequest")}
-                            </button>
-                        </div>
+                        travelResult ? (
+                            <div className="rounded-2xl border border-teal-200 bg-gradient-to-b from-teal-50 to-white p-8 animate-fade-up">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white text-xl shadow-lg shadow-teal-500/20">
+                                        🏖️
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-bold text-teal-800">{t("travelSuccess")}</h3>
+                                        <div className="text-xs text-teal-600 font-mono font-semibold">
+                                            {t("travelRefNo")}: {travelResult.request_id}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Coordinator message */}
+                                <div className="rounded-xl border border-teal-200 bg-teal-50/50 p-4 mb-6">
+                                    <p className="text-sm text-slate-700 leading-relaxed">{travelResult.coordinator_message}</p>
+                                </div>
+
+                                {/* Hotel suggestions */}
+                                {travelResult.suggestions.length > 0 && (
+                                    <div className="mb-6">
+                                        <h4 className="text-xs text-slate-400 uppercase tracking-widest font-semibold mb-3">{t("travelHotelSuggestions")}</h4>
+                                        <div className="space-y-3">
+                                            {travelResult.suggestions.map((s, i) => (
+                                                <div key={i} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <h5 className="font-semibold text-slate-800">{s.name}</h5>
+                                                        <div className="flex items-center gap-0.5">
+                                                            {Array.from({ length: s.stars }).map((_, j) => (
+                                                                <span key={j} className="text-amber-400 text-xs">&#9733;</span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-xs text-slate-500 mb-2">{s.highlight}</p>
+                                                    <div className="text-sm font-mono font-bold text-teal-600">
+                                                        ${s.price_night_usd} <span className="text-slate-400 font-normal text-xs">{t("travelPerNight")}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Next steps */}
+                                {travelResult.next_steps.length > 0 && (
+                                    <div className="mb-6">
+                                        <h4 className="text-xs text-slate-400 uppercase tracking-widest font-semibold mb-3">{t("travelNextSteps")}</h4>
+                                        <div className="space-y-2">
+                                            {travelResult.next_steps.map((step, i) => (
+                                                <div key={i} className="flex gap-3 items-start">
+                                                    <span className="shrink-0 w-6 h-6 rounded-lg bg-teal-50 border border-teal-200 flex items-center justify-center text-xs font-bold text-teal-700">
+                                                        {i + 1}
+                                                    </span>
+                                                    <span className="text-sm text-slate-600">{step}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <button onClick={() => { setSubmitted(false); setTravelResult(null); }}
+                                    className="w-full py-3 rounded-xl border-2 border-slate-200 bg-white text-sm text-slate-500 font-semibold hover:text-teal-700 hover:bg-teal-50 hover:border-teal-300 transition-all duration-300">
+                                    {t("btnNewRequest")}
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="rounded-2xl border border-teal-200 bg-teal-50 p-8 text-center animate-fade-up">
+                                <div className="text-4xl mb-3">🏖️</div>
+                                <h3 className="text-xl font-bold text-teal-800 mb-2">{t("travelSuccess")}</h3>
+                                <p className="text-teal-600 text-sm mb-5">{t("travelSuccessSub")}</p>
+                                <button onClick={() => setSubmitted(false)}
+                                    className="px-5 py-2 rounded-xl bg-teal-600 text-white text-sm font-bold hover:bg-teal-500 transition-colors">
+                                    {t("btnNewRequest")}
+                                </button>
+                            </div>
+                        )
                     ) : (
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <input required placeholder={t("fieldName")} value={form.full_name}

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useLanguage } from "../../lib/LanguageContext";
+import { getHospitals, type ApiHospital } from "../../lib/api";
 import LanguagePicker from "../../components/LanguagePicker";
 
 // ─────────────────────────────────────────────────────────────
@@ -15,16 +16,19 @@ interface IntakeResult {
     patient_id: string;
     procedure_category: string;
     matched_hospital?: {
+        hospital_id?: string;
         name: string;
         city: string;
         country: string;
         rating: number;
         commission_rate: number;
-        contact_whatsapp?: string;
+        contact_whatsapp?: string | null;
         specialties?: string[];
         languages?: string[];
-    };
+        jci_accredited?: boolean;
+    } | null;
     estimated_procedure_cost_usd: number;
+    commission_rate_pct?: string;
     commission_usd: number;
     coordinator_message: string;
     next_steps: string[];
@@ -304,6 +308,8 @@ export default function MedicalPage() {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<IntakeResult | null>(null);
     const [hospitalTab, setHospitalTab] = useState<"turkey" | "thailand">("turkey");
+    const [hospitals, setHospitals] = useState<Hospital[]>([]);
+    const [hospitalsLoading, setHospitalsLoading] = useState(true);
     const [form, setForm] = useState({
         full_name: "",
         phone: "",
@@ -314,6 +320,28 @@ export default function MedicalPage() {
         referral_source: "",
         phuket_arrival_date: "",
     });
+
+    useEffect(() => {
+        getHospitals()
+            .then((data) => {
+                const mapped: Hospital[] = data.hospitals.map((h: ApiHospital) => ({
+                    id: h.hospital_id,
+                    name: h.name,
+                    city: h.city,
+                    country: h.country,
+                    specialties: h.specialties,
+                    rating: h.rating,
+                    commission_rate: h.commission_rate,
+                    languages: h.languages,
+                    jci: h.jci_accredited ?? false,
+                }));
+                setHospitals(mapped);
+            })
+            .catch(() => {
+                setHospitals([...TURKEY_HOSPITALS, ...THAI_HOSPITALS]);
+            })
+            .finally(() => setHospitalsLoading(false));
+    }, []);
 
 
     const buildCoordinatorMessage = (patientId: string, hospitalName: string, cost: number): string => {
@@ -438,7 +466,13 @@ export default function MedicalPage() {
         document.getElementById("intake-form")?.scrollIntoView({ behavior: "smooth" });
     };
 
-    const displayHospitals = hospitalTab === "turkey" ? TURKEY_HOSPITALS : THAI_HOSPITALS;
+    const turkeyHospitals = hospitals.length > 0
+        ? hospitals.filter(h => h.country === "Turkey")
+        : TURKEY_HOSPITALS;
+    const thaiHospitals = hospitals.length > 0
+        ? hospitals.filter(h => h.country === "Thailand")
+        : THAI_HOSPITALS;
+    const displayHospitals = hospitalTab === "turkey" ? turkeyHospitals : thaiHospitals;
 
     return (
         <div className="min-h-screen bg-white text-slate-800 selection:bg-cyan-100 selection:text-cyan-900">
@@ -657,11 +691,28 @@ export default function MedicalPage() {
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {displayHospitals.map((h) => (
-                            <HospitalCard key={h.id} hospital={h} lang={lang} onSelect={scrollToForm} />
-                        ))}
-                    </div>
+                    {hospitalsLoading ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {[1, 2, 3].map((i) => (
+                                <div key={i} className="rounded-2xl border border-slate-100 bg-white p-5 animate-pulse">
+                                    <div className="h-4 bg-slate-200 rounded w-3/4 mb-3" />
+                                    <div className="h-3 bg-slate-100 rounded w-1/2 mb-4" />
+                                    <div className="flex gap-2 mb-4">
+                                        <div className="h-5 bg-slate-100 rounded w-12" />
+                                        <div className="h-5 bg-slate-100 rounded w-16" />
+                                    </div>
+                                    <div className="h-3 bg-slate-100 rounded w-full" />
+                                </div>
+                            ))}
+                            <p className="col-span-full text-center text-sm text-slate-400 mt-2">{t("medLoadingHospitals")}</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {displayHospitals.map((h) => (
+                                <HospitalCard key={h.id} hospital={h} lang={lang} onSelect={scrollToForm} />
+                            ))}
+                        </div>
+                    )}
                 </div>
             </section>
 
@@ -844,7 +895,7 @@ export default function MedicalPage() {
                                         <div>
                                             <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">{t("medCommission")}</div>
                                             <div className="text-lg text-cyan-600 font-mono font-bold">
-                                                ${result.commission_usd.toLocaleString()} <span className="text-sm text-slate-400">({(result.matched_hospital.commission_rate * 100).toFixed(0)}%)</span>
+                                                ${result.commission_usd.toLocaleString()} <span className="text-sm text-slate-400">({result.commission_rate_pct ?? `${(result.matched_hospital.commission_rate * 100).toFixed(0)}%`})</span>
                                             </div>
                                         </div>
                                     </div>
