@@ -96,6 +96,75 @@ const SECTORS = [
     },
 ] as const;
 
+// ─── Featured Treatments (top 4 from medical page data) ─────────────────────
+type LangMap = Partial<Record<Language, string>>;
+const FEATURED_TREATMENTS: { icon: string; name: LangMap & { en: string }; priceTR: number; priceUS: number }[] = [
+    {
+        icon: "👃", priceTR: 4500, priceUS: 12000,
+        name: { en: "Rhinoplasty", ru: "Ринопластика", tr: "Rinoplasti", th: "เสริมจมูก", ar: "تجميل الأنف", zh: "鼻整形" },
+    },
+    {
+        icon: "💆", priceTR: 3000, priceUS: 15000,
+        name: { en: "Hair Transplant", ru: "Пересадка волос", tr: "Saç Ekimi", th: "ปลูกผม", ar: "زراعة الشعر", zh: "植发" },
+    },
+    {
+        icon: "🦷", priceTR: 2000, priceUS: 8000,
+        name: { en: "Dental Veneers", ru: "Виниры", tr: "Diş Veneerleri", th: "วีเนียร์", ar: "القشرة السنية", zh: "牙贴面" },
+    },
+    {
+        icon: "🍼", priceTR: 4500, priceUS: 20000,
+        name: { en: "IVF", ru: "ЭКО / IVF", tr: "Tüp Bebek", th: "IVF", ar: "أطفال الأنابيب", zh: "试管婴儿" },
+    },
+];
+
+// ─── Trust Items ─────────────────────────────────────────────────────────────
+const TRUST_ITEMS = [
+    { icon: "🏅", titleKey: "homeWhy1", descKey: "homeWhy1d" },
+    { icon: "🗣️", titleKey: "homeWhy2", descKey: "homeWhy2d" },
+    { icon: "💎", titleKey: "homeWhy3", descKey: "homeWhy3d" },
+    { icon: "🌏", titleKey: "homeWhy4", descKey: "homeWhy4d" },
+];
+
+// ─── Homepage Testimonials ──────────────────────────────────────────────────
+const HOME_TESTIMONIALS: { name: string; flag: string; procedure: LangMap & { en: string }; text: LangMap & { en: string } }[] = [
+    {
+        name: "Dmitry K.", flag: "🇷🇺",
+        procedure: { en: "Hair Transplant, Istanbul", ru: "Пересадка волос, Стамбул", tr: "Saç Ekimi, İstanbul", th: "ปลูกผม, อิสตันบูล", ar: "زراعة الشعر، إسطنبول", zh: "植发，伊斯坦布尔" },
+        text: {
+            en: "The entire process was seamless. My coordinator handled everything from airport pickup to post-op care. Results exceeded my expectations.",
+            ru: "Весь процесс прошёл безупречно. Координатор организовал всё — от трансфера из аэропорта до послеоперационного ухода. Результат превзошёл ожидания.",
+            tr: "Tüm süreç kusursuzdu. Koordinatörüm havalimanı transferinden ameliyat sonrası bakıma kadar her şeyi organize etti. Sonuçlar beklentilerimi aştı.",
+            th: "ทุกขั้นตอนราบรื่น ผู้ประสานงานดูแลทุกอย่างตั้งแต่รับสนามบินจนถึงดูแลหลังผ่าตัด ผลลัพธ์เกินความคาดหวัง",
+            ar: "كانت العملية بأكملها سلسة. تولى المنسق كل شيء من استقبال المطار حتى الرعاية بعد العملية. النتائج فاقت توقعاتي.",
+            zh: "整个过程非常顺畅。协调员从机场接送到术后护理全程处理。效果超出了我的预期。",
+        },
+    },
+    {
+        name: "Sarah M.", flag: "🇬🇧",
+        procedure: { en: "Rhinoplasty, Antalya", ru: "Ринопластика, Анталья", tr: "Rinoplasti, Antalya", th: "เสริมจมูก, อันตัลยา", ar: "تجميل الأنف، أنطاليا", zh: "鼻整形，安塔利亚" },
+        text: {
+            en: "I saved over 60% compared to London prices. The clinic was world-class and my follow-up in Phuket was very reassuring.",
+            ru: "Я сэкономила более 60% по сравнению с ценами в Лондоне. Клиника мирового уровня, а наблюдение на Пхукете добавило уверенности.",
+            tr: "Londra fiyatlarına göre %60'tan fazla tasarruf ettim. Klinik dünya standartlarındaydı ve Phuket'teki takip çok güven vericiydi.",
+            th: "ประหยัดกว่า 60% เมื่อเทียบกับราคาในลอนดอน คลินิกมาตรฐานระดับโลกและการติดตามผลที่ภูเก็ตน่าเชื่อถือมาก",
+            ar: "وفرت أكثر من 60% مقارنة بأسعار لندن. العيادة كانت عالمية المستوى والمتابعة في بوكيت كانت مطمئنة جداً.",
+            zh: "与伦敦价格相比节省了60%以上。诊所世界一流，在普吉岛的随访也很让人放心。",
+        },
+    },
+    {
+        name: "Yuki T.", flag: "🇹🇭",
+        procedure: { en: "Dental Veneers, Istanbul", ru: "Виниры, Стамбул", tr: "Veneer, İstanbul", th: "วีเนียร์, อิสตันบูล", ar: "قشور الأسنان، إسطنبول", zh: "牙贴面，伊斯坦布尔" },
+        text: {
+            en: "Living in Phuket, the dual-country model was perfect. Pre-consultation here, treatment in Istanbul, and follow-up back home. Highly recommend!",
+            ru: "Живя на Пхукете, модель двух стран оказалась идеальной. Пред-консультация здесь, лечение в Стамбуле, наблюдение дома. Очень рекомендую!",
+            tr: "Phuket'te yaşayan biri olarak çift ülke modeli mükemmeldi. Burada ön konsültasyon, İstanbul'da tedavi ve evde takip. Kesinlikle tavsiye ederim!",
+            th: "อาศัยอยู่ภูเก็ต โมเดลสองประเทศเหมาะมาก ปรึกษาเบื้องต้นที่นี่ รักษาที่อิสตันบูล ติดตามผลกลับบ้าน แนะนำเลย!",
+            ar: "بما أنني أعيش في بوكيت، كان نموذج البلدين مثالياً. استشارة أولية هنا، علاج في إسطنبول، ومتابعة في المنزل. أنصح بشدة!",
+            zh: "住在普吉岛，双国模式非常完美。这里初诊，伊斯坦布尔治疗，回家随访。强烈推荐！",
+        },
+    },
+];
+
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function HomePage() {
     const { t, lang } = useLanguage();
@@ -208,14 +277,136 @@ export default function HomePage() {
                 </div>
             </section>
 
+            {/* ── FEATURED TREATMENTS ─────────────────────────────────── */}
+            <section className="section-padding bg-white">
+                <div className="container-main">
+                    <h2 className="text-2xl sm:text-3xl font-display font-bold text-slate-800 text-center mb-10">
+                        {t("homeFeaturedTitle")}
+                    </h2>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
+                        {FEATURED_TREATMENTS.map((tr) => {
+                            const saving = Math.round((1 - tr.priceTR / tr.priceUS) * 100);
+                            return (
+                                <div key={tr.icon} className="group rounded-2xl border border-slate-100 bg-white p-5 text-center shadow-sm hover:shadow-lg hover:border-cyan-200 transition-all duration-300 hover:-translate-y-1">
+                                    <span className="text-3xl block mb-3">{tr.icon}</span>
+                                    <h3 className="text-sm font-bold text-slate-800 mb-1">{tr.name[lang] ?? tr.name.en}</h3>
+                                    <p className="text-lg font-bold text-cyan-600">${tr.priceTR.toLocaleString()}</p>
+                                    <span className="inline-block mt-1.5 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                                        -{saving}%
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <div className="text-center mt-8">
+                        <Link href="/medical"
+                            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-400 text-white font-bold shadow-md hover:scale-105 transition-all duration-200">
+                            {t("homeFeaturedBtn")}
+                        </Link>
+                    </div>
+                </div>
+            </section>
+
+            {/* ── TRUST / WHY CHOOSE US ──────────────────────────────── */}
+            <section className="section-padding bg-slate-50">
+                <div className="container-main">
+                    <h2 className="text-2xl sm:text-3xl font-display font-bold text-slate-800 text-center mb-10">
+                        {t("homeWhyTitle")}
+                    </h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {TRUST_ITEMS.map((item, i) => (
+                            <div key={i} className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md hover:border-cyan-200 transition-all duration-300">
+                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-sky-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 mb-4">
+                                    <span className="text-2xl">{item.icon}</span>
+                                </div>
+                                <h3 className="text-sm font-bold text-slate-800 mb-2">{t(item.titleKey as Parameters<typeof t>[0])}</h3>
+                                <p className="text-xs text-slate-500 leading-relaxed">{t(item.descKey as Parameters<typeof t>[0])}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* ── TESTIMONIALS ────────────────────────────────────────── */}
+            <section className="section-padding bg-white">
+                <div className="container-main">
+                    <h2 className="text-2xl sm:text-3xl font-display font-bold text-slate-800 text-center mb-10">
+                        {t("homeTestimonialsTitle")}
+                    </h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        {HOME_TESTIMONIALS.map((rev, i) => (
+                            <div key={i} className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300">
+                                <div className="flex items-center gap-1 mb-3 text-amber-400 text-sm">
+                                    {"★★★★★"}
+                                </div>
+                                <p className="text-sm text-slate-600 leading-relaxed mb-4 italic">
+                                    &ldquo;{rev.text[lang] ?? rev.text.en}&rdquo;
+                                </p>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-500 to-sky-600 flex items-center justify-center text-white text-xs font-bold">
+                                        {rev.name.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-slate-800">{rev.flag} {rev.name}</p>
+                                        <p className="text-xs text-slate-400">{rev.procedure[lang] ?? rev.procedure.en}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
             {/* ── FOOTER ───────────────────────────────────────────────────── */}
-            <footer className="border-t border-slate-100 bg-white py-8">
-                <div className="container-main flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-400">
-                    <span>© 2026 AntiGravity Ventures · {t("footerTagline")}</span>
-                    <div className="flex gap-4">
-                        <Link href="/medical" className="hover:text-sky-600 transition-colors">{t("navMedical")}</Link>
-                        <Link href="/travel" className="hover:text-sky-600 transition-colors">{t("navTravel")}</Link>
-                        <Link href="/factory" className="hover:text-sky-600 transition-colors">{t("navFactory")}</Link>
+            <footer className="bg-slate-900 text-white pt-16 pb-8">
+                <div className="container-main">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-10">
+                        {/* Brand */}
+                        <div>
+                            <div className="flex items-center gap-2.5 mb-4">
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-cyan-400 flex items-center justify-center">
+                                    <span className="text-lg">✈️</span>
+                                </div>
+                                <div>
+                                    <span className="text-sm font-bold text-white">AntiGravity</span>
+                                    <span className="text-sm font-bold text-cyan-400 ml-1">Medical</span>
+                                </div>
+                            </div>
+                            <p className="text-sm text-slate-400 leading-relaxed max-w-xs">{t("footerTagline")}</p>
+                            <div className="flex items-center gap-3 mt-5">
+                                <span className="text-[9px] px-2.5 py-1 rounded bg-cyan-900/50 border border-cyan-700/30 text-cyan-400 uppercase tracking-wider font-bold">JCI Partner</span>
+                                <span className="text-[9px] px-2.5 py-1 rounded bg-slate-800 border border-slate-700 text-slate-400 uppercase tracking-wider font-bold">TURSAB</span>
+                            </div>
+                        </div>
+
+                        {/* Quick Links */}
+                        <div>
+                            <h4 className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-4">Links</h4>
+                            <div className="space-y-2 text-sm text-slate-400">
+                                <Link href="/medical" className="block hover:text-cyan-400 transition-colors">{t("navMedical")}</Link>
+                                <Link href="/travel" className="block hover:text-cyan-400 transition-colors">{t("navTravel")}</Link>
+                                <Link href="/factory" className="block hover:text-cyan-400 transition-colors">{t("navFactory")}</Link>
+                            </div>
+                        </div>
+
+                        {/* Contact */}
+                        <div>
+                            <h4 className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-4">Contact</h4>
+                            <div className="space-y-3 text-sm text-slate-400">
+                                <div className="flex items-center gap-2"><span>📍</span><span>Phuket, Thailand</span></div>
+                                <div className="flex items-center gap-2"><span>📍</span><span>Istanbul & Antalya, Turkey</span></div>
+                                <div className="flex items-center gap-2"><span>💬</span><span>+66 XX XXX XXXX</span></div>
+                                <div className="flex items-center gap-2"><span>📧</span><span>info@antigravity.co</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="border-t border-slate-800 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+                        <span>&copy; {new Date().getFullYear()} AntiGravity Ventures. All rights reserved.</span>
+                        <span className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
+                            Phuket &amp; Turkey — Active
+                        </span>
                     </div>
                 </div>
             </footer>
