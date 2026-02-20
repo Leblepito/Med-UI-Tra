@@ -4,13 +4,26 @@ Platform-specific formatlama, zamanlama ve yayinlama yonetimi.
 """
 from __future__ import annotations
 
+import sys
 import uuid
 from datetime import datetime
+from pathlib import Path
 from typing import Any
+
+# Backend path for DB imports
+_backend_path = str(Path(__file__).parent.parent.parent / "02_backend")
+if _backend_path not in sys.path:
+    sys.path.insert(0, _backend_path)
+
+try:
+    from database.models import PublishQueueItem
+    _DB_AVAILABLE = True
+except ImportError:
+    _DB_AVAILABLE = False
 
 
 # ---------------------------------------------------------------------------
-# Publish queue (in-memory, Firestore'a tasinacak)
+# Publish queue (in-memory fallback when db=None)
 # ---------------------------------------------------------------------------
 _publish_queue: list[dict[str, Any]] = []
 
@@ -133,53 +146,89 @@ def format_for_platform(content: str, platform: str) -> dict[str, Any]:
     }
 
 
-def schedule_post(content: str, platform: str, publish_at: str) -> dict[str, Any]:
+def schedule_post(content: str, platform: str, publish_at: str, db=None) -> dict[str, Any]:
     """Icerik yayinini zamanlar."""
     post_id = f"PUB-{uuid.uuid4().hex[:8].upper()}"
 
-    entry = {
-        "post_id": post_id,
-        "content": content,
-        "platform": platform,
-        "publish_at": publish_at,
-        "status": "scheduled",
-        "created_at": datetime.utcnow().isoformat(),
-    }
-    _publish_queue.append(entry)
+    if db and _DB_AVAILABLE:
+        item = PublishQueueItem(
+            post_id=post_id,
+            content=content,
+            platform=platform,
+            publish_at=publish_at if publish_at else None,
+            status="scheduled",
+        )
+        db.add(item)
+        db.commit()
+        queue_pos = db.query(PublishQueueItem).count()
+    else:
+        entry = {
+            "post_id": post_id,
+            "content": content,
+            "platform": platform,
+            "publish_at": publish_at,
+            "status": "scheduled",
+            "created_at": datetime.utcnow().isoformat(),
+        }
+        _publish_queue.append(entry)
+        queue_pos = len(_publish_queue)
 
     return {
         "post_id": post_id,
         "status": "scheduled",
         "platform": platform,
         "publish_at": publish_at,
-        "queue_position": len(_publish_queue),
+        "queue_position": queue_pos,
     }
 
 
-def publish(content: str, platform: str, credentials: dict | None = None) -> dict[str, Any]:
+def publish(content: str, platform: str, credentials: dict | None = None, db=None) -> dict[str, Any]:
     """Icerigi hemen yayinlar (stub — gercek API entegrasyonu Phase 2)."""
     post_id = f"PUB-{uuid.uuid4().hex[:8].upper()}"
+    now = datetime.utcnow()
 
-    entry = {
-        "post_id": post_id,
-        "content": content,
-        "platform": platform,
-        "status": "published_stub",
-        "published_at": datetime.utcnow().isoformat(),
-    }
-    _publish_queue.append(entry)
+    if db and _DB_AVAILABLE:
+        item = PublishQueueItem(
+            post_id=post_id,
+            content=content,
+            platform=platform,
+            status="published_stub",
+            published_at=now,
+        )
+        db.add(item)
+        db.commit()
+    else:
+        entry = {
+            "post_id": post_id,
+            "content": content,
+            "platform": platform,
+            "status": "published_stub",
+            "published_at": now.isoformat(),
+        }
+        _publish_queue.append(entry)
 
     return {
         "post_id": post_id,
         "status": "published_stub",
         "platform": platform,
-        "published_at": entry["published_at"],
+        "published_at": now.isoformat(),
         "note": f"Stub publish — real {platform} API integration planned for Phase 2",
     }
 
 
-def get_publish_queue() -> dict[str, Any]:
+def get_publish_queue(db=None) -> dict[str, Any]:
     """Bekleyen ve tamamlanan yayinlar listesi."""
+    if db and _DB_AVAILABLE:
+        all_items = db.query(PublishQueueItem).all()
+        all_dicts = [item.to_dict() for item in all_items]
+        scheduled = [p for p in all_dicts if p["status"] == "scheduled"]
+        published = [p for p in all_dicts if "published" in p["status"]]
+        return {
+            "total": len(all_dicts),
+            "scheduled": {"count": len(scheduled), "posts": scheduled},
+            "published": {"count": len(published), "posts": published},
+        }
+
     scheduled = [p for p in _publish_queue if p["status"] == "scheduled"]
     published = [p for p in _publish_queue if "published" in p["status"]]
 

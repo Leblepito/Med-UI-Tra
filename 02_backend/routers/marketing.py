@@ -10,7 +10,10 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from database.connection import get_db
 
 # Agent path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "04_ai_agents"))
@@ -106,15 +109,38 @@ def content_social(body: ContentRequest) -> dict:
 # ---------------------------------------------------------------------------
 
 @router.post("/campaign/plan")
-def campaign_plan(body: CampaignPlanRequest) -> dict:
+def campaign_plan(body: CampaignPlanRequest, db: Session = Depends(get_db)) -> dict:
     """Kampanya plani olusturma."""
-    return agent.plan_campaign({
+    from database.models import Campaign
+    import uuid
+
+    result = agent.plan_campaign({
         "procedure": body.procedure,
         "regions": [r.value for r in body.regions],
         "budget_usd": body.budget_usd,
         "duration_days": body.duration_days,
         "platforms": [p.value for p in body.platforms],
     })
+
+    # Persist campaign to DB
+    campaign_id = f"CMP-{uuid.uuid4().hex[:8].upper()}"
+    campaign = Campaign(
+        campaign_id=campaign_id,
+        procedure=body.procedure,
+        regions=[r.value for r in body.regions],
+        platforms=[p.value for p in body.platforms],
+        total_budget_usd=body.budget_usd,
+        duration_days=body.duration_days,
+        budget_split=result.get("budget_split"),
+        ad_groups=result.get("ad_groups"),
+        estimated_roi=result.get("estimated_roi"),
+        calendar_summary=result.get("calendar_summary"),
+    )
+    db.add(campaign)
+    db.commit()
+
+    result["campaign_id"] = campaign_id
+    return result
 
 
 @router.post("/campaign/budget")
@@ -197,30 +223,30 @@ def leads_score(body: LeadScoreRequest) -> dict:
 # ---------------------------------------------------------------------------
 
 @router.post("/publish/schedule")
-def publish_schedule(body: PublishRequest) -> dict:
+def publish_schedule(body: PublishRequest, db: Session = Depends(get_db)) -> dict:
     """Icerik zamanlama."""
     return agent.handle({
         "action": "publish_schedule",
         "content": body.content,
         "platform": body.platform.value,
         "publish_at": body.publish_at or "",
-    })
+    }, db=db)
 
 
 @router.post("/publish/now")
-def publish_now(body: PublishRequest) -> dict:
+def publish_now(body: PublishRequest, db: Session = Depends(get_db)) -> dict:
     """Anlik yayinlama."""
     return agent.handle({
         "action": "publish_now",
         "content": body.content,
         "platform": body.platform.value,
-    })
+    }, db=db)
 
 
 @router.get("/publish/queue")
-def publish_queue() -> dict:
+def publish_queue(db: Session = Depends(get_db)) -> dict:
     """Yayin kuyrugu."""
-    return agent.handle({"action": "publish_queue"})
+    return agent.handle({"action": "publish_queue"}, db=db)
 
 
 # ---------------------------------------------------------------------------

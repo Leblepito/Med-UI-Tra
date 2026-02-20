@@ -10,8 +10,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
+from database.connection import get_db
+from database.models import TravelRequest as TravelRequestModel
 
 # Agent path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "04_ai_agents"))
@@ -41,11 +45,40 @@ class TravelRequestBody(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.post("/options")
-def travel_options(body: TravelRequestBody) -> dict:
+def travel_options(body: TravelRequestBody, db: Session = Depends(get_db)) -> dict:
     """
     Seyahat talebi al ve TravelAgent üzerinden destinasyon/otel önerisi üret.
     """
     request_id = f"TRV-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+
+    # Persist travel request to DB
+    from datetime import date as date_type
+    check_in_date = None
+    check_out_date = None
+    if body.check_in:
+        try:
+            check_in_date = date_type.fromisoformat(body.check_in)
+        except (ValueError, TypeError):
+            pass
+    if body.check_out:
+        try:
+            check_out_date = date_type.fromisoformat(body.check_out)
+        except (ValueError, TypeError):
+            pass
+
+    travel_req = TravelRequestModel(
+        request_id=request_id,
+        full_name=body.full_name,
+        phone=body.phone,
+        language=body.language,
+        destination=body.destination or "Phuket",
+        check_in=check_in_date,
+        check_out=check_out_date,
+        guests=body.guests,
+        notes=body.notes,
+    )
+    db.add(travel_req)
+    db.commit()
 
     # Route through TravelAgent
     result = agent.process_request({

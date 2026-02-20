@@ -4,13 +4,26 @@ Performans metrikleri, ROI hesaplama, funnel takibi ve benchmark karsilastirma.
 """
 from __future__ import annotations
 
+import sys
 import uuid
 from datetime import datetime
+from pathlib import Path
 from typing import Any
+
+# Backend path for DB imports
+_backend_path = str(Path(__file__).parent.parent.parent / "02_backend")
+if _backend_path not in sys.path:
+    sys.path.insert(0, _backend_path)
+
+try:
+    from database.models import Conversion
+    _DB_AVAILABLE = True
+except ImportError:
+    _DB_AVAILABLE = False
 
 
 # ---------------------------------------------------------------------------
-# In-memory stores (Firestore'a tasinacak)
+# In-memory stores (fallback when db=None)
 # ---------------------------------------------------------------------------
 _conversion_log: list[dict[str, Any]] = []
 
@@ -84,10 +97,25 @@ def track_conversion(
     medium: str,
     campaign: str,
     patient_id: str | None = None,
+    db=None,
 ) -> dict[str, Any]:
     """Donusum attribution kaydi olusturur."""
+    conv_id = f"CONV-{uuid.uuid4().hex[:8].upper()}"
+
+    if db and _DB_AVAILABLE:
+        conv = Conversion(
+            conversion_id=conv_id,
+            source=source,
+            medium=medium,
+            campaign=campaign,
+            patient_id=patient_id,
+        )
+        db.add(conv)
+        db.commit()
+        return conv.to_dict()
+
     record = {
-        "conversion_id": f"CONV-{uuid.uuid4().hex[:8].upper()}",
+        "conversion_id": conv_id,
         "source": source,
         "medium": medium,
         "campaign": campaign,

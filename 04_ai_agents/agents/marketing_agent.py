@@ -41,10 +41,13 @@ class MarketingAgent:
     # Main orchestrator entry point
     # ------------------------------------------------------------------
 
-    def handle(self, request: dict[str, Any]) -> dict[str, Any]:
+    def handle(self, request: dict[str, Any], db=None) -> dict[str, Any]:
         """Ana entry point — action bazli routing."""
         action = request.get("action", "status")
         logger.info(f"MarketingAgent handling action: {action}")
+
+        # Store db on request for handlers that need it
+        request["_db"] = db
 
         dispatch = {
             "seo_analyze": self.generate_seo_package,
@@ -269,19 +272,22 @@ class MarketingAgent:
         content = request.get("content", "")
         platform = request.get("platform", "google")
         publish_at = request.get("publish_at", "")
+        db = request.get("_db")
 
-        result = auto_publisher.schedule_post(content, platform, publish_at)
+        result = auto_publisher.schedule_post(content, platform, publish_at, db=db)
         return {"status": "ok", "action": "publish_schedule", **result}
 
     def _publish_now(self, request: dict[str, Any]) -> dict[str, Any]:
         content = request.get("content", "")
         platform = request.get("platform", "google")
+        db = request.get("_db")
 
-        result = auto_publisher.publish(content, platform)
+        result = auto_publisher.publish(content, platform, db=db)
         return {"status": "ok", "action": "publish_now", **result}
 
     def _get_queue(self, request: dict[str, Any]) -> dict[str, Any]:
-        result = auto_publisher.get_publish_queue()
+        db = request.get("_db")
+        result = auto_publisher.get_publish_queue(db=db)
         return {"status": "ok", "action": "publish_queue", **result}
 
     # ------------------------------------------------------------------

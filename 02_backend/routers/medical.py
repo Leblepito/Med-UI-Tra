@@ -7,9 +7,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
+from sqlalchemy.orm import Session
 from typing import Optional, Literal
+
+from database.connection import get_db
 
 # Agent path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "04_ai_agents"))
@@ -55,51 +58,51 @@ class StatusUpdateBody(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.post("/intake")
-def submit_intake(body: IntakeBody) -> dict:
+def submit_intake(body: IntakeBody, db: Session = Depends(get_db)) -> dict:
     """
     Yeni hasta başvurusu.
     Prosedür sınıflandırması, hastane eşleştirmesi ve komisyon hesaplaması yapar.
     """
     try:
-        result = agent.process_intake(body.model_dump())
+        result = agent.process_intake(body.model_dump(), db=db)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/patient/{patient_id}")
-def get_patient(patient_id: str) -> dict:
+def get_patient(patient_id: str, db: Session = Depends(get_db)) -> dict:
     """Hasta kaydını getirir."""
-    record = agent.get_patient(patient_id)
+    record = agent.get_patient(patient_id, db=db)
     if not record:
         raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
     return record
 
 
 @router.patch("/patient/status")
-def update_patient_status(body: StatusUpdateBody) -> dict:
+def update_patient_status(body: StatusUpdateBody, db: Session = Depends(get_db)) -> dict:
     """Hasta durumunu günceller."""
-    return agent.update_status(body.patient_id, body.new_status)
+    return agent.update_status(body.patient_id, body.new_status, db=db)
 
 
 @router.get("/patients")
-def list_patients(status: Optional[str] = None) -> dict:
+def list_patients(status: Optional[str] = None, db: Session = Depends(get_db)) -> dict:
     """Hasta listesi (isteğe bağlı status filtresi)."""
-    patients = agent.list_patients(status_filter=status)
+    patients = agent.list_patients(status_filter=status, db=db)
     return {"total": len(patients), "patients": patients}
 
 
 @router.get("/commission/summary")
-def commission_summary() -> dict:
+def commission_summary(db: Session = Depends(get_db)) -> dict:
     """Komisyon pipeline özetini döndürür."""
-    return agent.get_commission_summary()
+    return agent.get_commission_summary(db=db)
 
 
 @router.get("/hospitals")
-def list_hospitals() -> dict:
+def list_hospitals(db: Session = Depends(get_db)) -> dict:
     """Partner hastane listesi."""
-    from agents.medical_agent import PARTNER_HOSPITALS
-    return {"total": len(PARTNER_HOSPITALS), "hospitals": PARTNER_HOSPITALS}
+    hospitals = agent.get_hospitals(db=db)
+    return {"total": len(hospitals), "hospitals": hospitals}
 
 
 @router.get("/procedures")

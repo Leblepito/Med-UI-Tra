@@ -14,15 +14,26 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
 import sys
 
-# Model path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "02_backend"))
+# Backend path — needed for ORM model imports
+_backend_path = str(Path(__file__).parent.parent.parent / "02_backend")
+if _backend_path not in sys.path:
+    sys.path.insert(0, _backend_path)
 
 logger = logging.getLogger("MedicalAgent")
+
+# Optional DB imports — graceful fallback when DB not available
+try:
+    from database.models import Hospital as HospitalModel, Patient as PatientModel
+    from sqlalchemy.orm import Session
+    from sqlalchemy import func as sa_func
+    _DB_AVAILABLE = True
+except ImportError:
+    _DB_AVAILABLE = False
 
 
 # ---------------------------------------------------------------------------
@@ -184,17 +195,18 @@ class MedicalAgent:
     """
     ThaiTurk Medical Tourism Referral Agent.
     Her hasta talebini end-to-end yönetir.
+    DB (SQLAlchemy Session) parametresi ile çalışır; db=None ise in-memory fallback.
     """
 
     def __init__(self) -> None:
-        self._patient_db: dict[str, dict] = {}   # Stub — Firestore ile replace edilecek
+        self._patient_db: dict[str, dict] = {}   # In-memory fallback (db=None)
         logger.info("MedicalAgent initialized — Phuket↔Turkey referral engine active.")
 
     # ----------------------------------------------------------------
     # Public API
     # ----------------------------------------------------------------
 
-    def process_intake(self, intake_data: dict) -> dict:
+    def process_intake(self, intake_data: dict, db=None) -> dict:
         """
         Yeni hasta başvurusu işler.
         Returns: IntakeResponse dict
@@ -208,7 +220,7 @@ class MedicalAgent:
         intake_data["procedure_category"] = category
 
         # 2. Hastane eşleştir
-        hospital = self._match_hospital(category, intake_data.get("language", "ru"))
+        hospital = self._match_hospital(category, intake_data.get("language", "ru"), db=db)
 
         # 3. Maliyet & komisyon hesapla
         budget = intake_data.get("budget_usd")
@@ -219,18 +231,55 @@ class MedicalAgent:
         # 4. Hasta kaydı oluştur
         hospital_id = hospital.get("hospital_id") if hospital else None
         hospital_name = hospital.get("name", "N/A") if hospital else "No match"
-        record = {
-            "patient_id": patient_id,
-            "intake": intake_data,
-            "status": "inquiry",
-            "matched_hospital": hospital_id,
-            "estimated_procedure_cost_usd": cost,
-            "commission_rate": commission_rate,
-            "commission_usd": commission,
-            "created_at": datetime.utcnow().isoformat(),
-            "tags": self._generate_tags(intake_data, category),
-        }
-        self._patient_db[patient_id] = record
+
+        if db and _DB_AVAILABLE:
+            # Persist to PostgreSQL
+            arrival = intake_data.get("phuket_arrival_date")
+            arrival_date = None
+            if arrival:
+                try:
+                    arrival_date = date.fromisoformat(arrival)
+                except (ValueError, TypeError):
+                    pass
+
+            patient = PatientModel(
+                patient_id=patient_id,
+                full_name=intake_data.get("full_name", ""),
+                phone=intake_data.get("phone", ""),
+                language=intake_data.get("language", "ru"),
+                procedure_interest=procedure_text,
+                procedure_category=category,
+                urgency=intake_data.get("urgency", "routine"),
+                budget_usd=budget,
+                notes=intake_data.get("notes"),
+                referral_source=intake_data.get("referral_source"),
+                phuket_arrival_date=arrival_date,
+                status="inquiry",
+                matched_hospital_id=hospital_id,
+                estimated_procedure_cost_usd=cost,
+                commission_rate=commission_rate,
+                commission_usd=commission,
+                tags=self._generate_tags(intake_data, category),
+            )
+            db.add(patient)
+            db.commit()
+            db.refresh(patient)
+            record = patient.to_dict()
+        else:
+            # In-memory fallback
+            record = {
+                "patient_id": patient_id,
+                "intake": intake_data,
+                "status": "inquiry",
+                "matched_hospital": hospital_id,
+                "estimated_procedure_cost_usd": cost,
+                "commission_rate": commission_rate,
+                "commission_usd": commission,
+                "created_at": datetime.utcnow().isoformat(),
+                "tags": self._generate_tags(intake_data, category),
+            }
+            self._patient_db[patient_id] = record
+
         logger.info(f"[MedicalAgent] Patient {patient_id} registered → {category} → {hospital_name}")
 
         # 5. Koordinatör mesajı üret
@@ -259,12 +308,25 @@ class MedicalAgent:
             "record": record,
         }
 
-    def get_patient(self, patient_id: str) -> Optional[dict]:
+    def get_patient(self, patient_id: str, db=None) -> Optional[dict]:
         """Hasta kaydını getirir."""
+        if db and _DB_AVAILABLE:
+            p = db.query(PatientModel).filter_by(patient_id=patient_id).first()
+            return p.to_dict() if p else None
         return self._patient_db.get(patient_id)
 
-    def update_status(self, patient_id: str, new_status: str) -> dict:
+    def update_status(self, patient_id: str, new_status: str, db=None) -> dict:
         """Hasta durumunu günceller."""
+        if db and _DB_AVAILABLE:
+            p = db.query(PatientModel).filter_by(patient_id=patient_id).first()
+            if not p:
+                return {"error": f"Patient {patient_id} not found"}
+            p.status = new_status
+            db.commit()
+            logger.info(f"[MedicalAgent] {patient_id} status → {new_status}")
+            return {"success": True, "patient_id": patient_id, "status": new_status}
+
+        # In-memory fallback
         if patient_id not in self._patient_db:
             return {"error": f"Patient {patient_id} not found"}
         self._patient_db[patient_id]["status"] = new_status
@@ -272,15 +334,42 @@ class MedicalAgent:
         logger.info(f"[MedicalAgent] {patient_id} status → {new_status}")
         return {"success": True, "patient_id": patient_id, "status": new_status}
 
-    def list_patients(self, status_filter: Optional[str] = None) -> list[dict]:
+    def list_patients(self, status_filter: Optional[str] = None, db=None) -> list[dict]:
         """Tüm hastaları listeler, isteğe bağlı status filtresiyle."""
+        if db and _DB_AVAILABLE:
+            q = db.query(PatientModel)
+            if status_filter:
+                q = q.filter(PatientModel.status == status_filter)
+            return [p.to_dict() for p in q.all()]
+
+        # In-memory fallback
         patients = list(self._patient_db.values())
         if status_filter:
             patients = [p for p in patients if p.get("status") == status_filter]
         return patients
 
-    def get_commission_summary(self) -> dict:
+    def get_commission_summary(self, db=None) -> dict:
         """Tüm komisyon özetini döndürür."""
+        if db and _DB_AVAILABLE:
+            total = db.query(PatientModel).count()
+            confirmed = (
+                db.query(sa_func.coalesce(sa_func.sum(PatientModel.commission_usd), 0))
+                .filter(PatientModel.status.in_(["treatment_confirmed", "completed"]))
+                .scalar()
+            )
+            pending = (
+                db.query(sa_func.coalesce(sa_func.sum(PatientModel.commission_usd), 0))
+                .filter(PatientModel.status.in_(["inquiry", "consultation_scheduled", "hospital_matched"]))
+                .scalar()
+            )
+            return {
+                "total_patients": total,
+                "confirmed_commission_usd": round(float(confirmed), 2),
+                "pending_commission_usd": round(float(pending), 2),
+                "total_pipeline_usd": round(float(confirmed) + float(pending), 2),
+            }
+
+        # In-memory fallback
         total_confirmed = sum(
             p.get("commission_usd", 0)
             for p in self._patient_db.values()
@@ -298,6 +387,13 @@ class MedicalAgent:
             "total_pipeline_usd": round(total_confirmed + total_pending, 2),
         }
 
+    def get_hospitals(self, db=None) -> list[dict]:
+        """Partner hastane listesi (DB veya static fallback)."""
+        if db and _DB_AVAILABLE:
+            hospitals = db.query(HospitalModel).filter(HospitalModel.active.is_(True)).all()
+            return [h.to_dict() for h in hospitals]
+        return PARTNER_HOSPITALS
+
     # ----------------------------------------------------------------
     # Private Helpers
     # ----------------------------------------------------------------
@@ -309,18 +405,28 @@ class MedicalAgent:
                 return category
         return "other"
 
-    def _match_hospital(self, category: str, language: str) -> Optional[dict]:
+    def _match_hospital(self, category: str, language: str, db=None) -> Optional[dict]:
         """Kategoriye ve dile göre en iyi hastaneyi seç."""
-        if not PARTNER_HOSPITALS:
+        if db and _DB_AVAILABLE:
+            # Query from DB
+            all_hospitals = db.query(HospitalModel).filter(HospitalModel.active.is_(True)).all()
+            if not all_hospitals:
+                logger.warning("[MedicalAgent] No partner hospitals in database!")
+                return None
+            hospital_dicts = [h.to_dict() for h in all_hospitals]
+        else:
+            hospital_dicts = PARTNER_HOSPITALS
+
+        if not hospital_dicts:
             logger.warning("[MedicalAgent] No partner hospitals configured!")
             return None
 
         candidates = [
-            h for h in PARTNER_HOSPITALS
+            h for h in hospital_dicts
             if category in h.get("specialties", [])
         ]
         if not candidates:
-            candidates = list(PARTNER_HOSPITALS)  # Fallback: tümünü değerlendir
+            candidates = list(hospital_dicts)  # Fallback: tümünü değerlendir
 
         # Skorlama: dil uyumu + rating - commission_rate
         def score(h: dict) -> float:
