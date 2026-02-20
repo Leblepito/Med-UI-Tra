@@ -30,7 +30,7 @@ const notoArabic = Noto_Kufi_Arabic({
 });
 
 const notoChinese = Noto_Sans_SC({
-    subsets: ["chinese-simplified"],
+    subsets: ["latin"],
     variable: "--font-chinese",
     display: "swap",
     weight: ["400", "700"],
