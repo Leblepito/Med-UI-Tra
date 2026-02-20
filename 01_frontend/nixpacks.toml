@@ -1,6 +1,2 @@
-[build]
-buildCommand = "cd 01_frontend && npm install && npm run build"
-
-[deploy]
-startCommand = "cd 01_frontend && npm run start"
-healthcheckPath = "/"
+[start]
+cmd = "npm run start"
