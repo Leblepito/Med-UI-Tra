@@ -4,6 +4,7 @@ const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
 
 const nextConfig: NextConfig = {
     output: "standalone",
+    allowedDevOrigins: ["healthcheck.railway.app"],
     async rewrites() {
         return [
             {
