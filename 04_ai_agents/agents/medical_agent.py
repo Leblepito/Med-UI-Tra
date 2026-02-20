@@ -391,7 +391,8 @@ class MedicalAgent:
         """Partner hastane listesi (DB veya static fallback)."""
         if db and _DB_AVAILABLE:
             hospitals = db.query(HospitalModel).filter(HospitalModel.active.is_(True)).all()
-            return [h.to_dict() for h in hospitals]
+            if hospitals:
+                return [h.to_dict() for h in hospitals]
         return PARTNER_HOSPITALS
 
     # ----------------------------------------------------------------
@@ -410,10 +411,7 @@ class MedicalAgent:
         if db and _DB_AVAILABLE:
             # Query from DB
             all_hospitals = db.query(HospitalModel).filter(HospitalModel.active.is_(True)).all()
-            if not all_hospitals:
-                logger.warning("[MedicalAgent] No partner hospitals in database!")
-                return None
-            hospital_dicts = [h.to_dict() for h in all_hospitals]
+            hospital_dicts = [h.to_dict() for h in all_hospitals] if all_hospitals else PARTNER_HOSPITALS
         else:
             hospital_dicts = PARTNER_HOSPITALS
 
