@@ -94,18 +94,40 @@ PARTNER_HOSPITALS = [
 
 # Prosedür → kategori mapping
 PROCEDURE_CATEGORY_MAP: dict[str, str] = {
-    "rhinoplasty": "aesthetic", "rinoplasti": "aesthetic", "burun": "aesthetic",
-    "liposuction": "aesthetic", "abdominoplasty": "aesthetic", "karın germe": "aesthetic",
-    "göğüs": "aesthetic", "breast": "aesthetic",
-    "hair transplant": "hair", "saç ekimi": "hair", "hair": "hair",
-    "dental": "dental", "diş": "dental", "implant": "dental",
-    "veneer": "dental", "kaplama": "dental", "zirkon": "dental",
-    "skin": "dermatology", "cilt": "dermatology", "lazer": "dermatology",
-    "checkup": "checkup", "check-up": "checkup", "tahlil": "checkup",
-    "eye": "ophthalmology", "göz": "ophthalmology", "lasik": "ophthalmology",
-    "bariatric": "bariatric", "obezite": "bariatric", "gastrik": "bariatric",
-    "ivf": "ivf", "tüp bebek": "ivf",
-    "cancer": "oncology", "kanser": "oncology", "tümör": "oncology",
+    # English
+    "rhinoplasty": "aesthetic", "liposuction": "aesthetic", "abdominoplasty": "aesthetic",
+    "breast": "aesthetic", "aesthetic": "aesthetic", "cosmetic": "aesthetic", "plastic": "aesthetic",
+    "hair transplant": "hair", "hair": "hair",
+    "dental": "dental", "implant": "dental", "veneer": "dental", "teeth": "dental",
+    "skin": "dermatology", "dermatology": "dermatology", "laser": "dermatology",
+    "checkup": "checkup", "check-up": "checkup", "health check": "checkup",
+    "eye": "ophthalmology", "lasik": "ophthalmology", "ophthalmology": "ophthalmology",
+    "bariatric": "bariatric", "gastric": "bariatric", "weight loss": "bariatric", "obesity": "bariatric",
+    "ivf": "ivf", "fertility": "ivf",
+    "cancer": "oncology", "oncology": "oncology", "tumor": "oncology",
+    # Turkish
+    "rinoplasti": "aesthetic", "burun": "aesthetic", "karın germe": "aesthetic",
+    "göğüs": "aesthetic", "estetik": "aesthetic",
+    "saç ekimi": "hair", "saç": "hair",
+    "diş": "dental", "kaplama": "dental", "zirkon": "dental",
+    "cilt": "dermatology", "lazer": "dermatology",
+    "tahlil": "checkup", "kontrol": "checkup",
+    "göz": "ophthalmology",
+    "obezite": "bariatric", "gastrik": "bariatric",
+    "tüp bebek": "ivf",
+    "kanser": "oncology", "tümör": "oncology",
+    # Russian (Cyrillic)
+    "ринопластика": "aesthetic", "пластика": "aesthetic", "нос": "aesthetic",
+    "липосакция": "aesthetic", "грудь": "aesthetic", "эстетика": "aesthetic",
+    "абдоминопластика": "aesthetic", "подтяжка": "aesthetic",
+    "пересадка волос": "hair", "волосы": "hair", "трансплантация": "hair",
+    "стоматология": "dental", "зубы": "dental", "виниры": "dental", "имплант": "dental",
+    "кожа": "dermatology", "дерматология": "dermatology", "лазер": "dermatology",
+    "осмотр": "checkup", "чекап": "checkup", "обследование": "checkup",
+    "глаза": "ophthalmology", "зрение": "ophthalmology", "лазик": "ophthalmology",
+    "бариатрия": "bariatric", "ожирение": "bariatric", "желудок": "bariatric",
+    "эко": "ivf", "бесплодие": "ivf",
+    "онкология": "oncology", "рак": "oncology", "опухоль": "oncology",
 }
 
 # Prosedür → baz fiyat (USD)
@@ -191,15 +213,17 @@ class MedicalAgent:
         # 3. Maliyet & komisyon hesapla
         budget = intake_data.get("budget_usd")
         cost = self._estimate_cost(category, budget)
-        commission_rate = hospital.get("commission_rate", 0.22) if hospital else 0.22
+        commission_rate = (hospital.get("commission_rate", 0.22) if hospital else 0.22)
         commission = round(cost * commission_rate, 2)
 
         # 4. Hasta kaydı oluştur
+        hospital_id = hospital.get("hospital_id") if hospital else None
+        hospital_name = hospital.get("name", "N/A") if hospital else "No match"
         record = {
             "patient_id": patient_id,
             "intake": intake_data,
             "status": "inquiry",
-            "matched_hospital": hospital.get("hospital_id") if hospital else None,
+            "matched_hospital": hospital_id,
             "estimated_procedure_cost_usd": cost,
             "commission_rate": commission_rate,
             "commission_usd": commission,
@@ -207,7 +231,7 @@ class MedicalAgent:
             "tags": self._generate_tags(intake_data, category),
         }
         self._patient_db[patient_id] = record
-        logger.info(f"[MedicalAgent] Patient {patient_id} registered → {category} → {hospital.get('name') if hospital else 'No match'}")
+        logger.info(f"[MedicalAgent] Patient {patient_id} registered → {category} → {hospital_name}")
 
         # 5. Koordinatör mesajı üret
         lang = intake_data.get("language", "ru")
@@ -287,14 +311,18 @@ class MedicalAgent:
 
     def _match_hospital(self, category: str, language: str) -> Optional[dict]:
         """Kategoriye ve dile göre en iyi hastaneyi seç."""
+        if not PARTNER_HOSPITALS:
+            logger.warning("[MedicalAgent] No partner hospitals configured!")
+            return None
+
         candidates = [
             h for h in PARTNER_HOSPITALS
             if category in h.get("specialties", [])
         ]
         if not candidates:
-            candidates = PARTNER_HOSPITALS   # Fallback: tümünü değerlendir
+            candidates = list(PARTNER_HOSPITALS)  # Fallback: tümünü değerlendir
 
-        # Skorlama: dil uyumu + rating + commission_rate
+        # Skorlama: dil uyumu + rating - commission_rate
         def score(h: dict) -> float:
             lang_bonus = 0.5 if language in h.get("languages", []) else 0.0
             return h.get("rating", 4.0) + lang_bonus - h.get("commission_rate", 0.22)

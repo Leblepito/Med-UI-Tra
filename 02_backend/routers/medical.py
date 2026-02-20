@@ -8,8 +8,8 @@ import sys
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
-from typing import Optional
+from pydantic import BaseModel, Field, field_validator
+from typing import Optional, Literal
 
 # Agent path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "04_ai_agents"))
@@ -24,15 +24,25 @@ agent = MedicalAgent()
 # ---------------------------------------------------------------------------
 
 class IntakeBody(BaseModel):
-    full_name: str = Field(..., min_length=2)
-    phone: str
-    language: str = "ru"
-    procedure_interest: str
-    urgency: str = "routine"
-    budget_usd: Optional[float] = None
-    notes: Optional[str] = None
+    full_name: str = Field(..., min_length=2, max_length=100)
+    phone: str = Field(..., description="International phone format")
+    language: Literal["ru", "en", "tr", "th"] = "ru"
+    procedure_interest: str = Field(..., min_length=1)
+    urgency: Literal["routine", "soon", "urgent", "emergency"] = "routine"
+    budget_usd: Optional[float] = Field(None, ge=0)
+    notes: Optional[str] = Field(None, max_length=1000)
     referral_source: Optional[str] = None
     phuket_arrival_date: Optional[str] = None
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        cleaned = v.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+        if not cleaned.startswith("+"):
+            cleaned = "+" + cleaned
+        if len(cleaned) < 9 or len(cleaned) > 16:
+            raise ValueError("Invalid phone number format")
+        return cleaned
 
 
 class StatusUpdateBody(BaseModel):

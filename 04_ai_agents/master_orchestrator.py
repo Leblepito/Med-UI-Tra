@@ -47,6 +47,7 @@ class Sector(str, Enum):
     MEDICAL = "Medical"
     TRAVEL = "Travel"
     FACTORY = "Factory"
+    MARKETING = "Marketing"
     UNKNOWN = "Unknown"
 
 
@@ -123,6 +124,22 @@ KEYWORD_MAPS: dict[Sector, list[str]] = {
         "завод", "текстиль", "производство", "экспорт", "ткань",
         "нить", "оптовый", "заказ", "образец", "поставка",
     ],
+    Sector.MARKETING: [
+        # Türkçe
+        "reklam", "pazarlama", "seo", "kampanya", "sosyal medya", "içerik",
+        "google ads", "facebook ads", "instagram", "blog", "anahtar kelime",
+        "trafik", "dönüşüm", "lead", "hedefleme", "bütçe", "analiz",
+        "raporlama", "performans", "marka", "dijital", "yayın", "paylaşım",
+        # English
+        "marketing", "advertising", "campaign", "social media", "content",
+        "google ads", "facebook ads", "keyword", "traffic",
+        "conversion", "lead generation", "targeting", "budget", "analytics",
+        "reporting", "performance", "brand", "digital", "publish", "ad copy",
+        # Russian
+        "маркетинг", "реклама", "продвижение", "кампания", "соцсети", "контент",
+        "ключевые слова", "трафик", "конверсия", "лид", "таргетинг", "бюджет",
+        "аналитика", "отчет", "бренд", "публикация",
+    ],
 }
 
 
@@ -198,7 +215,38 @@ class AgentRouter:
 
     def __init__(self) -> None:
         self._classifier = RequestClassifier()
-        logger.info("AgentRouter initialized — Medical | Travel | Factory routing active.")
+
+        # Lazy-init real agents
+        self._medical_agent = None
+        self._travel_agent = None
+        self._factory_agent = None
+        self._marketing_agent = None
+
+        try:
+            from agents.medical_agent import MedicalAgent
+            self._medical_agent = MedicalAgent()
+        except Exception as e:
+            logger.warning(f"MedicalAgent init failed: {e}")
+
+        try:
+            from agents.travel_agent import TravelAgent
+            self._travel_agent = TravelAgent()
+        except Exception as e:
+            logger.warning(f"TravelAgent init failed: {e}")
+
+        try:
+            from agents.factory_agent import FactoryAgent
+            self._factory_agent = FactoryAgent()
+        except Exception as e:
+            logger.warning(f"FactoryAgent init failed: {e}")
+
+        try:
+            from agents.marketing_agent import MarketingAgent
+            self._marketing_agent = MarketingAgent()
+        except Exception as e:
+            logger.warning(f"MarketingAgent init failed: {e}")
+
+        logger.info("AgentRouter initialized — Medical | Travel | Factory | Marketing routing active.")
 
     def route(self, user_input: str | dict[str, Any]) -> dict[str, Any]:
         """
@@ -238,7 +286,7 @@ class AgentRouter:
         }
 
     def _dispatch(self, result: ClassificationResult) -> dict[str, Any]:
-        """Agent'a yönlendir. Şu an stub; gerçek agent'lar entegre edilecek."""
+        """Agent'a yönlendir."""
         sector = result.sector
 
         if sector == Sector.MEDICAL:
@@ -247,12 +295,14 @@ class AgentRouter:
             return self._call_travel_agent(result)
         elif sector == Sector.FACTORY:
             return self._call_factory_agent(result)
+        elif sector == Sector.MARKETING:
+            return self._call_marketing_agent(result)
         else:
             return {
                 "status": "unrouted",
                 "message": (
                     "Sektör belirlenemedi. Lütfen talebinizi "
-                    "'Medical', 'Travel' veya 'Factory' kategorisine "
+                    "'Medical', 'Travel', 'Factory' veya 'Marketing' kategorisine "
                     "girecek şekilde yeniden ifade edin."
                 ),
             }
@@ -263,6 +313,21 @@ class AgentRouter:
 
     def _call_medical_agent(self, result: ClassificationResult) -> dict[str, Any]:
         logger.info("[MedicalAgent] Handling patient/referral request.")
+        if self._medical_agent:
+            try:
+                return {
+                    "agent": "MedicalAgent",
+                    "status": "active",
+                    "sector": "Medical",
+                    "action": "referral_coordination",
+                    "classification": result.to_dict(),
+                    **self._medical_agent.process_intake({
+                        "procedure_interest": result.raw_input,
+                        "language": "tr",
+                    }),
+                }
+            except Exception as e:
+                logger.error(f"MedicalAgent error: {e}")
         return {
             "agent": "MedicalAgent",
             "status": "active",
@@ -271,7 +336,7 @@ class AgentRouter:
             "message": (
                 "Tıbbi danışmanlık talebiniz alındı. "
                 "AntiGravity Phuket koordinatörünüz en geç 5 dakika içinde "
-                "Telegram/WhatsApp üzerinden sizinle iletişime geçecek."
+                "WhatsApp üzerinden sizinle iletişime geçecek."
             ),
             "next_steps": [
                 "Ön konsültasyon rezervasyonu",
@@ -283,6 +348,17 @@ class AgentRouter:
 
     def _call_travel_agent(self, result: ClassificationResult) -> dict[str, Any]:
         logger.info("[TravelAgent] Handling hotel/restaurant/booking request.")
+        if self._travel_agent:
+            try:
+                return {
+                    "agent": "TravelAgent",
+                    "status": "active",
+                    "sector": "Travel",
+                    "action": "booking_coordination",
+                    **self._travel_agent.handle({"message": result.raw_input}),
+                }
+            except Exception as e:
+                logger.error(f"TravelAgent error: {e}")
         return {
             "agent": "TravelAgent",
             "status": "active",
@@ -302,22 +378,61 @@ class AgentRouter:
 
     def _call_factory_agent(self, result: ClassificationResult) -> dict[str, Any]:
         logger.info("[FactoryAgent] Handling B2B manufacturing/textile request.")
+        if self._factory_agent:
+            try:
+                return {
+                    "agent": "FactoryAgent",
+                    "status": "active",
+                    "sector": "Factory",
+                    "action": "b2b_lead_qualification",
+                    **self._factory_agent.handle({"message": result.raw_input}),
+                }
+            except Exception as e:
+                logger.error(f"FactoryAgent error: {e}")
         return {
             "agent": "FactoryAgent",
-            "status": "active",
+            "status": "dormant",
             "sector": "Factory",
             "action": "b2b_lead_qualification",
             "message": (
                 "B2B / üretim talebiniz alındı. "
-                "Kayıt sistemi aktif değil — bu sektör dormant modda. "
-                "Talebin kaydı alındı, aktivasyon sonrası takip edilecek."
+                "Kayıt sistemi aktif değil — bu sektör dormant modda."
             ),
-            "next_steps": [
-                "Lead kaydı (CRM)",
-                "Kapasite araştırması",
-                "Teklif hazırlama (Factory aktif olduğunda)",
+            "next_steps": ["Lead kaydı", "Aktivasyon sonrası takip"],
+            "note": "Factory agent currently DORMANT.",
+        }
+
+    def _call_marketing_agent(self, result: ClassificationResult) -> dict[str, Any]:
+        logger.info("[MarketingAgent] Handling marketing/SEO/campaign request.")
+        if self._marketing_agent:
+            try:
+                return {
+                    "agent": "MarketingAgent",
+                    "status": "active",
+                    "sector": "Marketing",
+                    "action": "marketing_coordination",
+                    **self._marketing_agent.handle({"message": result.raw_input}),
+                }
+            except Exception as e:
+                logger.error(f"MarketingAgent error: {e}")
+        return {
+            "agent": "MarketingAgent",
+            "status": "active",
+            "sector": "Marketing",
+            "action": "marketing_coordination",
+            "message": (
+                "Pazarlama talebiniz alındı. "
+                "SEO, içerik üretimi, kampanya planlaması ve "
+                "analitik raporlama hizmetleri aktiftir."
+            ),
+            "capabilities": [
+                "SEO keyword analizi & meta tag üretimi",
+                "Blog/reklam/sosyal medya içerik üretimi",
+                "Google Ads / Meta Ads / Yandex kampanya planı",
+                "Performans metrikleri & ROI hesaplama",
+                "Lead segmentasyonu & remarketing",
+                "Otomatik platform yayınlama",
             ],
-            "note": "Factory agent currently DORMANT — activation criteria pending.",
         }
 
     def _log_session(self, result: ClassificationResult, response: dict[str, Any]) -> None:
@@ -343,7 +458,7 @@ def main() -> None:
 
     print("\n" + "=" * 60)
     print("  AntiGravity Ventures — Master Orchestrator v1.0.0")
-    print("  Sektörler: Medical | Travel | Factory")
+    print("  Sektörler: Medical | Travel | Factory | Marketing")
     print("  Çıkmak için: Ctrl+C veya 'quit'")
     print("=" * 60 + "\n")
 

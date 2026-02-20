@@ -63,3 +63,35 @@ class TravelAgent:
     def _check_availability(self, check_in: str, nights: int, room_type: str) -> bool:
         # Stub — gerçekte Firestore/PMS'den kontrol edilecek
         return True
+
+    def process_request(self, request: dict) -> dict:
+        """
+        Travel router tarafından çağrılan ana metod.
+        Coordinator mesajı ve öneri listesi döndürür.
+        """
+        lang = request.get("language", "en")
+        destination = request.get("destination", "Phuket")
+        check_in = request.get("check_in") or ""
+        guests = request.get("guests", 2)
+        request_id = request.get("request_id", "TRV-UNKNOWN")
+
+        coord_msgs = {
+            "ru": f"Здравствуйте! 🏖️\n\nВаш запрос #{request_id} получен.\nКоординатор свяжется с вами через WhatsApp в течение 5 минут.\n\n📍 Направление: {destination}\n👥 Гостей: {guests}",
+            "en": f"Hello! 🏖️\n\nYour request #{request_id} has been received.\nOur coordinator will contact you via WhatsApp within 5 minutes.\n\n📍 Destination: {destination}\n👥 Guests: {guests}",
+            "tr": f"Merhaba! 🏖️\n\n#{request_id} numaralı talebiniz alındı.\nKoordinatörümüz 5 dakika içinde WhatsApp'tan iletişime geçecek.\n\n📍 Destinasyon: {destination}\n👥 Misafir: {guests}",
+        }
+
+        suggestions = [
+            {"name": "Patong Beach Hotel", "stars": 4, "price_night_usd": 85, "highlight": "Beach front"},
+            {"name": "Kamala Bay Suites", "stars": 5, "price_night_usd": 150, "highlight": "Private pool"},
+            {"name": "Kata Garden Resort", "stars": 3, "price_night_usd": 60, "highlight": "Family friendly"},
+        ]
+
+        logger.info(f"[TravelAgent] Travel request processed: {request_id} → {destination}")
+
+        return {
+            "request_id": request_id,
+            "coordinator_message": coord_msgs.get(lang, coord_msgs["en"]),
+            "suggestions": suggestions,
+        }
+
