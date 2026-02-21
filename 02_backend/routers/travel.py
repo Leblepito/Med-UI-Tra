@@ -10,12 +10,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Literal
 
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.orm import Session
 
 from database.connection import get_db
 from database.models import TravelRequest as TravelRequestModel
+
+import logging
+logger = logging.getLogger("thaiturk.travel")
 
 # Agent path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "04_ai_agents"))
@@ -39,13 +42,19 @@ class TravelRequestBody(BaseModel):
     guests: Optional[int] = Field(default=2, ge=1, le=20)
     notes: Optional[str] = Field(None, max_length=1000)
 
+    @model_validator(mode="after")
+    def validate_dates(self):
+        if self.check_in and self.check_out and self.check_out <= self.check_in:
+            raise ValueError("check_out must be after check_in")
+        return self
+
 
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
 @router.post("/options")
-def travel_options(body: TravelRequestBody, db: Session = Depends(get_db)) -> dict:
+def travel_options(body: TravelRequestBody, request: Request, db: Session = Depends(get_db)) -> dict:
     """
     Seyahat talebi al ve TravelAgent üzerinden destinasyon/otel önerisi üret.
     """
@@ -66,32 +75,41 @@ def travel_options(body: TravelRequestBody, db: Session = Depends(get_db)) -> di
         except (ValueError, TypeError):
             pass
 
-    travel_req = TravelRequestModel(
-        request_id=request_id,
-        full_name=body.full_name,
-        phone=body.phone,
-        language=body.language,
-        destination=body.destination or "Phuket",
-        check_in=check_in_date,
-        check_out=check_out_date,
-        guests=body.guests,
-        notes=body.notes,
-    )
-    db.add(travel_req)
-    db.commit()
+    try:
+        travel_req = TravelRequestModel(
+            request_id=request_id,
+            full_name=body.full_name,
+            phone=body.phone,
+            language=body.language,
+            destination=body.destination or "Phuket",
+            check_in=check_in_date,
+            check_out=check_out_date,
+            guests=body.guests,
+            notes=body.notes,
+        )
+        db.add(travel_req)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to persist travel request: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save travel request")
 
     # Route through TravelAgent
-    result = agent.process_request({
-        "request_id": request_id,
-        "full_name": body.full_name,
-        "phone": body.phone,
-        "language": body.language,
-        "destination": body.destination or "Phuket",
-        "check_in": body.check_in,
-        "check_out": body.check_out,
-        "guests": body.guests,
-        "notes": body.notes,
-    })
+    try:
+        result = agent.process_request({
+            "request_id": request_id,
+            "full_name": body.full_name,
+            "phone": body.phone,
+            "language": body.language,
+            "destination": body.destination or "Phuket",
+            "check_in": body.check_in,
+            "check_out": body.check_out,
+            "guests": body.guests,
+            "notes": body.notes,
+        })
+    except Exception as e:
+        logger.error(f"TravelAgent error: {e}")
+        result = {}
 
     return {
         "request_id": request_id,
@@ -99,9 +117,9 @@ def travel_options(body: TravelRequestBody, db: Session = Depends(get_db)) -> di
         "coordinator_message": result.get("coordinator_message", ""),
         "suggestions": result.get("suggestions", []),
         "next_steps": result.get("next_steps", [
-            "📱 Coordinator contacts you via WhatsApp (5 min)",
-            "🏨 Hotel options forwarded",
-            "🗓️ Dates confirmed & booking arranged",
+            "Coordinator contacts you via WhatsApp (5 min)",
+            "Hotel options forwarded",
+            "Dates confirmed & booking arranged",
         ]),
     }
 

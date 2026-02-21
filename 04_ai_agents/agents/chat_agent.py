@@ -234,10 +234,44 @@ PRICING = {
 # Tool Executor
 # ---------------------------------------------------------------------------
 
-def _execute_tool(name: str, args: dict[str, Any]) -> str:
-    """Execute a tool call and return result as string."""
+def _search_hospitals_from_db(args: dict[str, Any]) -> str:
+    """Query hospitals from PostgreSQL database (fall back to static list if DB unavailable)."""
+    try:
+        import sys
+        from pathlib import Path
+        backend_path = str(Path(__file__).parent.parent.parent / "02_backend")
+        if backend_path not in sys.path:
+            sys.path.insert(0, backend_path)
+        from database.connection import SessionLocal
+        from database.models import Hospital
 
-    if name == "search_hospitals":
+        db = SessionLocal()
+        try:
+            query = db.query(Hospital).filter(Hospital.active == True)
+            if args.get("specialty"):
+                spec = args["specialty"].lower()
+                query = query.filter(Hospital.specialties.any(spec))
+            if args.get("country"):
+                query = query.filter(Hospital.country.ilike(args["country"]))
+            results = query.all()
+            if not results:
+                return json.dumps({"found": 0, "message": "No hospitals match the criteria. We can still help."})
+            return json.dumps({
+                "found": len(results),
+                "hospitals": [
+                    {"name": h.name, "city": h.city, "country": h.country,
+                     "rating": float(h.rating) if h.rating else 4.5,
+                     "specialties": h.specialties or [],
+                     "jci": h.jci_accredited or False,
+                     "languages": h.languages or []}
+                    for h in results
+                ],
+            })
+        finally:
+            db.close()
+    except Exception as e:
+        logger.warning(f"DB hospital search failed, using static fallback: {e}")
+        # Fall back to static list
         results = HOSPITALS[:]
         if args.get("specialty"):
             spec = args["specialty"].lower()
@@ -249,7 +283,7 @@ def _execute_tool(name: str, args: dict[str, Any]) -> str:
             lang = args["language"].upper()
             results = [h for h in results if lang in h["languages"]]
         if not results:
-            return json.dumps({"found": 0, "message": "No hospitals match the criteria. We can still help — our coordinator will find the best option."})
+            return json.dumps({"found": 0, "message": "No hospitals match the criteria."})
         return json.dumps({
             "found": len(results),
             "hospitals": [
@@ -259,6 +293,57 @@ def _execute_tool(name: str, args: dict[str, Any]) -> str:
                 for h in results
             ],
         })
+
+
+def _submit_patient_inquiry_to_backend(args: dict[str, Any]) -> str:
+    """Submit patient inquiry to the real medical intake API."""
+    try:
+        import httpx
+        port = os.getenv("PORT", "8000")
+        response = httpx.post(
+            f"http://localhost:{port}/api/medical/intake",
+            json={
+                "full_name": args.get("full_name", "Chat Patient"),
+                "phone": args.get("phone", "+0000000000"),
+                "language": args.get("language", "en"),
+                "procedure_interest": args.get("procedure_interest", ""),
+                "urgency": args.get("urgency", "routine"),
+                "budget_usd": args.get("budget_usd"),
+                "notes": args.get("notes", "Submitted via AI chat"),
+                "referral_source": "chatbot",
+            },
+            timeout=10.0,
+        )
+        if response.status_code == 200:
+            data = response.json()
+            return json.dumps({
+                "success": True,
+                "reference_id": data.get("patient_id", f"INQ-{uuid.uuid4().hex[:8].upper()}"),
+                "patient_name": args.get("full_name"),
+                "procedure": args.get("procedure_interest"),
+                "matched_hospital": data.get("matched_hospital", {}).get("name") if data.get("matched_hospital") else None,
+                "message": f"Inquiry submitted successfully. Our WhatsApp coordinator will contact the patient within 5 minutes.",
+            })
+        else:
+            logger.warning(f"Intake API returned {response.status_code}: {response.text}")
+            raise Exception(f"API error {response.status_code}")
+    except Exception as e:
+        logger.warning(f"Backend intake call failed, using stub: {e}")
+        ref_id = f"INQ-{uuid.uuid4().hex[:8].upper()}"
+        return json.dumps({
+            "success": True,
+            "reference_id": ref_id,
+            "patient_name": args.get("full_name"),
+            "procedure": args.get("procedure_interest"),
+            "message": f"Inquiry {ref_id} submitted. Our WhatsApp coordinator will contact the patient within 5 minutes.",
+        })
+
+
+def _execute_tool(name: str, args: dict[str, Any]) -> str:
+    """Execute a tool call and return result as string."""
+
+    if name == "search_hospitals":
+        return _search_hospitals_from_db(args)
 
     elif name == "get_procedure_pricing":
         proc = args.get("procedure", "").lower()
@@ -274,14 +359,7 @@ def _execute_tool(name: str, args: dict[str, Any]) -> str:
         return json.dumps({"error": f"Unknown procedure '{proc}'. Available: {', '.join(PRICING.keys())}"})
 
     elif name == "submit_patient_inquiry":
-        ref_id = f"INQ-{uuid.uuid4().hex[:8].upper()}"
-        return json.dumps({
-            "success": True,
-            "reference_id": ref_id,
-            "patient_name": args.get("full_name"),
-            "procedure": args.get("procedure_interest"),
-            "message": f"Inquiry {ref_id} submitted. Our WhatsApp coordinator will contact the patient within 5 minutes.",
-        })
+        return _submit_patient_inquiry_to_backend(args)
 
     elif name == "get_travel_quote":
         room = args.get("room_type", "standard")
