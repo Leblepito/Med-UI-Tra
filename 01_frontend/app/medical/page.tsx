@@ -10,7 +10,7 @@ import LanguagePicker from "../../components/LanguagePicker";
 // ─────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────
-type Urgency = "routine" | "soon" | "urgent";
+type Urgency = "routine" | "soon" | "urgent" | "emergency";
 
 
 interface IntakeResult {
@@ -1292,7 +1292,7 @@ export default function MedicalPage() {
                             </div>
 
                             {apiError && (
-                                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 flex items-start gap-3">
+                                <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 flex items-start gap-3">
                                     <span className="text-red-400 mt-0.5">&#9888;</span>
                                     <div className="flex-1">
                                         <p className="font-semibold">Submission failed</p>
@@ -1332,6 +1332,7 @@ export default function MedicalPage() {
                                             <option value="routine">{t("medUrgencyR")}</option>
                                             <option value="soon">{t("medUrgencyS")}</option>
                                             <option value="urgent">{t("medUrgencyU")}</option>
+                                            <option value="emergency">{t("medUrgencyE")}</option>
                                         </select>
                                     </div>
                                     <div>

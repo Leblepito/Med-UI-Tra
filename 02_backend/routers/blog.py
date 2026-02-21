@@ -14,14 +14,24 @@ _skills_path = Path(__file__).parent.parent.parent / "04_ai_agents" / "skills"
 if str(_skills_path) not in sys.path:
     sys.path.insert(0, str(_skills_path))
 
-from blog_seed_data import (
-    get_all_posts,
-    get_post_by_slug,
-    get_featured_posts,
-    get_posts_by_category,
-    get_all_slugs,
-    BLOG_CATEGORIES,
-)
+try:
+    from blog_seed_data import (
+        get_all_posts,
+        get_post_by_slug,
+        get_featured_posts,
+        get_posts_by_category,
+        get_all_slugs,
+        BLOG_CATEGORIES,
+    )
+except ImportError:
+    import logging as _log
+    _log.getLogger("thaiturk.blog").warning("blog_seed_data not found — blog endpoints will return empty data")
+    def get_all_posts(lang: str = "en") -> list: return []  # noqa: E704
+    def get_post_by_slug(slug: str, lang: str = "en") -> dict | None: return None  # noqa: E704
+    def get_featured_posts(lang: str = "en", limit: int = 3) -> list: return []  # noqa: E704
+    def get_posts_by_category(cat: str, lang: str = "en") -> list: return []  # noqa: E704
+    def get_all_slugs() -> list: return []  # noqa: E704
+    BLOG_CATEGORIES: list = []  # type: ignore[no-redef]
 
 router = APIRouter(prefix="/api/blog", tags=["Blog"])
 

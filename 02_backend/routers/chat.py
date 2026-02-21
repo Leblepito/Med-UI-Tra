@@ -126,6 +126,7 @@ def start_session(body: StartSessionBody, request: Request, db: Session = Depend
 
 
 @router.post("/message", response_model=SendMessageResponse)
+@(limiter.limit("20/minute") if _has_limiter else lambda f: f)
 def send_message(body: SendMessageBody, request: Request, db: Session = Depends(get_db)) -> dict:
     """Send a message and get an AI response."""
     agent = _get_agent()

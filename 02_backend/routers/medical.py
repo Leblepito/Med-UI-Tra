@@ -67,6 +67,7 @@ class StatusUpdateBody(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.post("/intake")
+@(limiter.limit("10/minute") if _has_limiter else lambda f: f)
 def submit_intake(body: IntakeBody, request: Request, db: Session = Depends(get_db)) -> dict:
     """
     Yeni hasta başvurusu.

@@ -240,9 +240,12 @@ export default function TravelPage() {
                                     className="w-24 rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:border-teal-400" />
                             </div>
 
-                            <textarea aria-label="Notes" placeholder={t("fieldNotes")} rows={3} value={form.notes}
-                                onChange={e => setForm({ ...form, notes: e.target.value })}
-                                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:border-teal-400 resize-none transition-colors" />
+                            <div>
+                                <label htmlFor="travel-notes" className="block text-xs font-semibold text-slate-500 mb-1">{t("fieldNotes")}</label>
+                                <textarea id="travel-notes" placeholder={t("fieldNotes")} rows={3} value={form.notes}
+                                    onChange={e => setForm({ ...form, notes: e.target.value })}
+                                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:border-teal-400 resize-none transition-colors" />
+                            </div>
 
                             <button type="submit" disabled={loading}
                                 className="w-full py-3.5 rounded-xl bg-teal-600 text-white font-bold hover:bg-teal-500 disabled:opacity-60 transition-all duration-200 hover:scale-[1.01]">
