@@ -1540,7 +1540,7 @@ export default function MedicalPage() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span>📧</span>
-                                    <span>medical@antigravity.co</span>
+                                    <span>medical@leblepito.com</span>
                                 </div>
                             </div>
                         </div>
