@@ -89,11 +89,26 @@ except ImportError:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Create tables on startup (dev convenience). Alembic handles prod migrations."""
+    """Create tables on startup and auto-seed if hospitals table is empty."""
     try:
         logger.info("Creating database tables...")
         Base.metadata.create_all(bind=engine)
         logger.info("Database tables ready.")
+
+        # Auto-seed hospitals if table is empty
+        from database.connection import SessionLocal
+        session = SessionLocal()
+        try:
+            hospital_count = session.query(models.Hospital).count()
+            if hospital_count == 0:
+                logger.info("Hospitals table empty — auto-seeding partner hospitals...")
+                from database.seed import seed_hospitals
+                seeded = seed_hospitals(session)
+                logger.info(f"Auto-seeded {seeded} hospitals.")
+        except Exception as e:
+            logger.warning(f"Auto-seed skipped: {e}")
+        finally:
+            session.close()
     except Exception as e:
         logger.warning(f"Database init skipped: {e}")
     yield
