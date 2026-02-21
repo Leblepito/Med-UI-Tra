@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import Navbar from "../../components/Navbar";
 import { useLanguage } from "../../lib/LanguageContext";
 
 const FEATURES = [
@@ -20,22 +21,7 @@ export default function FactoryPage() {
 
     return (
         <div className="min-h-screen bg-white text-slate-800" dir={dir}>
-
-            {/* Header */}
-            <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-slate-100 shadow-sm">
-                <div className="container-main h-16 flex items-center justify-between">
-                    <Link href="/" className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
-                            <span className="text-lg">🏭</span>
-                        </div>
-                        <div className="hidden sm:block">
-                            <span className="text-sm font-bold text-slate-800">AntiGravity</span>
-                            <span className="text-sm font-bold text-amber-600 ml-1">Factory</span>
-                        </div>
-                    </Link>
-                    <Link href="/" className="text-sm text-slate-500 hover:text-amber-600 transition-colors font-medium">{t("btnBack")}</Link>
-                </div>
-            </header>
+            <Navbar />
 
             {/* Hero — coming soon */}
             <section className="section-padding bg-gradient-to-b from-slate-900 to-slate-800 text-white relative overflow-hidden">
@@ -69,6 +55,7 @@ export default function FactoryPage() {
                                 <div className="flex gap-2">
                                     <input
                                         type="text"
+                                        aria-label="Phone or email for notifications"
                                         placeholder={t("factoryNotifyPlaceholder")}
                                         value={phone}
                                         onChange={(e) => setPhone(e.target.value)}

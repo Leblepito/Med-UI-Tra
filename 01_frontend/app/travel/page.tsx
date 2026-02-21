@@ -209,35 +209,38 @@ export default function TravelPage() {
                                     className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:border-teal-400 transition-colors" />
                             </div>
 
-                            <select value={form.destination} onChange={e => setForm({ ...form, destination: e.target.value })}
+                            <div>
+                                <label htmlFor="travel-dest" className="block text-xs font-semibold text-slate-500 mb-1">{t("travelFieldDest")}</label>
+                            <select id="travel-dest" value={form.destination} onChange={e => setForm({ ...form, destination: e.target.value })}
                                 className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700 focus:outline-none focus:border-teal-400 transition-colors">
                                 <option value="">{t("travelFieldDest")}</option>
                                 {destOptions.map(d => <option key={d} value={d}>{d}</option>)}
                             </select>
+                            </div>
 
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-xs text-slate-500 mb-1 block">{t("travelFieldCheckin")}</label>
-                                    <input type="date" value={form.check_in}
+                                    <label htmlFor="travel-checkin" className="text-xs text-slate-500 mb-1 block">{t("travelFieldCheckin")}</label>
+                                    <input id="travel-checkin" type="date" value={form.check_in}
                                         onChange={e => setForm({ ...form, check_in: e.target.value })}
                                         className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:border-teal-400" />
                                 </div>
                                 <div>
-                                    <label className="text-xs text-slate-500 mb-1 block">{t("travelFieldCheckout")}</label>
-                                    <input type="date" value={form.check_out}
+                                    <label htmlFor="travel-checkout" className="text-xs text-slate-500 mb-1 block">{t("travelFieldCheckout")}</label>
+                                    <input id="travel-checkout" type="date" value={form.check_out}
                                         onChange={e => setForm({ ...form, check_out: e.target.value })}
                                         className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:border-teal-400" />
                                 </div>
                             </div>
 
                             <div className="flex items-center gap-3">
-                                <label className="text-sm text-slate-600 shrink-0">{t("travelFieldGuests")}:</label>
-                                <input type="number" min="1" max="20" value={form.guests}
+                                <label htmlFor="travel-guests" className="text-sm text-slate-600 shrink-0">{t("travelFieldGuests")}:</label>
+                                <input id="travel-guests" type="number" min="1" max="20" value={form.guests}
                                     onChange={e => setForm({ ...form, guests: e.target.value })}
                                     className="w-24 rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:border-teal-400" />
                             </div>
 
-                            <textarea placeholder={t("fieldNotes")} rows={3} value={form.notes}
+                            <textarea aria-label="Notes" placeholder={t("fieldNotes")} rows={3} value={form.notes}
                                 onChange={e => setForm({ ...form, notes: e.target.value })}
                                 className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:border-teal-400 resize-none transition-colors" />
 
