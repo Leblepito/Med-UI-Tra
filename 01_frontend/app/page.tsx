@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
+import BlogCard from "../components/BlogCard";
 import LanguagePicker from "../components/LanguagePicker";
 import { useLanguage } from "../lib/LanguageContext";
-import type { Language } from "../lib/i18n";
+import { getBlogFeatured } from "../lib/api";
+import type { Language, TranslationKey } from "../lib/i18n";
 
 // ─── Language Selection Screen ───────────────────────────────────────────────
 function LanguageSelectScreen({ onSelect }: { onSelect: (lang: Language) => void }) {
@@ -164,6 +166,60 @@ const HOME_TESTIMONIALS: { name: string; flag: string; procedure: LangMap & { en
         },
     },
 ];
+
+// ─── Blog Preview ────────────────────────────────────────────────────────────
+const BLOG_CATEGORY_LABELS: Record<string, Record<string, string>> = {
+    hair_transplant: { en: "Hair Transplant", ru: "Пересадка волос", tr: "Sac Ekimi", th: "ปลูกผม", ar: "زراعة الشعر", zh: "植发" },
+    rhinoplasty: { en: "Rhinoplasty", ru: "Ринопластика", tr: "Rinoplasti", th: "เสริมจมูก", ar: "تجميل الأنف", zh: "鼻整形" },
+    dental: { en: "Dental", ru: "Стоматология", tr: "Dis", th: "ทันตกรรม", ar: "طب الأسنان", zh: "牙科" },
+    medical_tourism_guide: { en: "Guide", ru: "Руководство", tr: "Rehber", th: "คู่มือ", ar: "دليل", zh: "指南" },
+};
+
+function BlogPreview({ lang, t }: { lang: Language; t: (key: TranslationKey) => string }) {
+    const [posts, setPosts] = useState<Array<{ id: string; slug: string; title: string; excerpt: string; category: string; date: string; read_time: number; image: string }>>([]);
+
+    useEffect(() => {
+        getBlogFeatured(lang, 3)
+            .then((data) => setPosts(data.posts as typeof posts))
+            .catch(() => {});
+    }, [lang]);
+
+    if (posts.length === 0) return null;
+
+    return (
+        <section className="section-padding bg-slate-50">
+            <div className="container-main">
+                <h2 className="text-2xl sm:text-3xl font-display font-bold text-slate-800 text-center mb-10">
+                    {t("blogLatestTitle")}
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    {posts.map((post) => (
+                        <BlogCard
+                            key={post.id}
+                            title={post.title}
+                            slug={post.slug}
+                            excerpt={post.excerpt}
+                            category={post.category}
+                            categoryLabel={BLOG_CATEGORY_LABELS[post.category]?.[lang] || BLOG_CATEGORY_LABELS[post.category]?.en || post.category}
+                            date={post.date}
+                            readTime={post.read_time}
+                            readTimeLabel={t("blogReadTime")}
+                            image={post.image}
+                        />
+                    ))}
+                </div>
+                <div className="text-center mt-8">
+                    <Link
+                        href="/blog"
+                        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-400 text-white font-bold shadow-md hover:scale-105 transition-all duration-200"
+                    >
+                        {t("blogLatestBtn")}
+                    </Link>
+                </div>
+            </div>
+        </section>
+    );
+}
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function HomePage() {
@@ -357,6 +413,9 @@ export default function HomePage() {
                 </div>
             </section>
 
+            {/* ── BLOG PREVIEW ──────────────────────────────────────────── */}
+            <BlogPreview lang={lang} t={t} />
+
             {/* ── FOOTER ───────────────────────────────────────────────────── */}
             <footer className="bg-slate-900 text-white pt-16 pb-8">
                 <div className="container-main">
@@ -385,6 +444,7 @@ export default function HomePage() {
                             <div className="space-y-2 text-sm text-slate-400">
                                 <Link href="/medical" className="block hover:text-cyan-400 transition-colors">{t("navMedical")}</Link>
                                 <Link href="/travel" className="block hover:text-cyan-400 transition-colors">{t("navTravel")}</Link>
+                                <Link href="/blog" className="block hover:text-cyan-400 transition-colors">{t("blogNavLabel")}</Link>
                                 <Link href="/factory" className="block hover:text-cyan-400 transition-colors">{t("navFactory")}</Link>
                             </div>
                         </div>

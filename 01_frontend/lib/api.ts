@@ -213,3 +213,43 @@ export const chatGetHistory = (sessionId: string) =>
     apiFetch<{ session_id: string; messages: Record<string, unknown>[]; total: number }>(
         `/chat/history/${sessionId}`,
     );
+
+// ──────────────────────────────────────────────────
+// Blog
+// ──────────────────────────────────────────────────
+
+export interface BlogPostItem {
+    id: string;
+    slug: string;
+    title: string;
+    excerpt: string;
+    body?: string;
+    category: string;
+    featured: boolean;
+    author: string;
+    date: string;
+    read_time: number;
+    image: string;
+    tags: string[];
+}
+
+/** Get blog posts (paginated, filterable) */
+export const getBlogPosts = (language = "en", category?: string, page = 1, perPage = 10) => {
+    const params = new URLSearchParams({ language, page: String(page), per_page: String(perPage) });
+    if (category) params.set("category", category);
+    return apiFetch<{ posts: BlogPostItem[]; total: number; page: number; per_page: number; total_pages: number }>(
+        `/blog/posts?${params}`,
+    );
+};
+
+/** Get a single blog post by slug */
+export const getBlogPost = (slug: string, language = "en") =>
+    apiFetch<{ post: BlogPostItem }>(`/blog/posts/${slug}?language=${language}`);
+
+/** Get blog categories */
+export const getBlogCategories = () =>
+    apiFetch<{ categories: { id: string; icon: string }[] }>("/blog/categories");
+
+/** Get featured blog posts */
+export const getBlogFeatured = (language = "en", limit = 3) =>
+    apiFetch<{ posts: BlogPostItem[] }>(`/blog/featured?language=${language}&limit=${limit}`);

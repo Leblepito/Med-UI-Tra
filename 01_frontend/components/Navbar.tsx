@@ -15,6 +15,7 @@ export default function Navbar() {
         { href: "/", label: t("navHome"), icon: "🏠" },
         { href: "/medical", label: t("navMedical"), icon: "🏥" },
         { href: "/travel", label: t("navTravel"), icon: "🏖️" },
+        { href: "/blog", label: t("blogNavLabel"), icon: "📝" },
         { href: "/factory", label: t("navFactory"), icon: "🏭", soon: true },
     ];
 
@@ -70,6 +71,8 @@ export default function Navbar() {
                         className="md:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors"
                         onClick={() => setMobileOpen(!mobileOpen)}
                         aria-label="Toggle menu"
+                        aria-expanded={mobileOpen}
+                        aria-controls="mobile-nav"
                     >
                         {mobileOpen ? (
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -82,7 +85,7 @@ export default function Navbar() {
 
             {/* Mobile menu */}
             {mobileOpen && (
-                <div className="md:hidden border-t border-slate-100 bg-white/95 backdrop-blur-xl">
+                <div id="mobile-nav" className="md:hidden border-t border-slate-100 bg-white/95 backdrop-blur-xl" role="navigation" aria-label="Mobile navigation">
                     <div className="container-main py-3 flex flex-col gap-1">
                         {links.map(({ href, label, icon, soon }) => {
                             const active = href === "/" ? pathname === "/" : pathname.startsWith(href);

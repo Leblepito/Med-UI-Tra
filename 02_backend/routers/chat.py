@@ -1,6 +1,7 @@
 """
 AntiGravity Ventures — Chat Sector: FastAPI Router
 /api/chat/* endpoints — AI Medical Secretary chatbot
+DB-persisted sessions & messages.
 """
 from __future__ import annotations
 
@@ -11,11 +12,21 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from database.connection import get_db
+from database.models import ChatSession, ChatMessage
+
+# Rate limiting (graceful — works even without slowapi)
+try:
+    from slowapi import Limiter
+    from slowapi.util import get_remote_address
+    limiter = Limiter(key_func=get_remote_address)
+    _has_limiter = True
+except ImportError:
+    _has_limiter = False
 
 logger = logging.getLogger("thaiturk.chat")
 
@@ -40,13 +51,6 @@ def _get_agent() -> MedicalSecretaryAgent:
             raise HTTPException(status_code=503, detail="Chat agent not available")
         _agent = MedicalSecretaryAgent()
     return _agent
-
-
-# ---------------------------------------------------------------------------
-# In-memory session store (production would use DB)
-# ---------------------------------------------------------------------------
-
-_sessions: dict[str, dict] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -90,18 +94,29 @@ class HistoryResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.post("/session", response_model=StartSessionResponse)
-def start_session(body: StartSessionBody) -> dict:
+def start_session(body: StartSessionBody, request: Request, db: Session = Depends(get_db)) -> dict:
     """Start a new chat session and get a greeting."""
     agent = _get_agent()
     session_id = f"chat-{uuid.uuid4().hex[:12]}"
     greeting = agent.get_greeting(body.language)
 
-    _sessions[session_id] = {
-        "language": body.language,
-        "user_name": body.user_name,
-        "messages": [],
-        "created_at": datetime.utcnow().isoformat(),
-    }
+    # Persist session to DB
+    db_session = ChatSession(
+        session_id=session_id,
+        language=body.language,
+        user_name=body.user_name,
+    )
+    db.add(db_session)
+
+    # Persist greeting as first message
+    greeting_msg = ChatMessage(
+        message_id=f"msg-{uuid.uuid4().hex[:10]}",
+        session_id=session_id,
+        role="assistant",
+        content=greeting,
+    )
+    db.add(greeting_msg)
+    db.commit()
 
     return {
         "session_id": session_id,
@@ -111,26 +126,38 @@ def start_session(body: StartSessionBody) -> dict:
 
 
 @router.post("/message", response_model=SendMessageResponse)
-def send_message(body: SendMessageBody) -> dict:
+def send_message(body: SendMessageBody, request: Request, db: Session = Depends(get_db)) -> dict:
     """Send a message and get an AI response."""
     agent = _get_agent()
 
-    session = _sessions.get(body.session_id)
-    if not session:
+    db_session = db.query(ChatSession).filter(ChatSession.session_id == body.session_id).first()
+    if not db_session:
         raise HTTPException(status_code=404, detail="Session not found. Start a new session first.")
 
-    language = body.language or session["language"]
+    language = body.language or db_session.language
 
-    # Add user message to history
-    session["messages"].append({
-        "role": "user",
-        "content": body.message,
-    })
+    # Persist user message
+    user_msg_id = f"msg-{uuid.uuid4().hex[:10]}"
+    user_msg = ChatMessage(
+        message_id=user_msg_id,
+        session_id=body.session_id,
+        role="user",
+        content=body.message,
+    )
+    db.add(user_msg)
+    db.flush()
 
-    # Build messages for Claude (Anthropic format)
+    # Build messages for Claude (last 100 messages for context window)
+    recent_messages = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.session_id == body.session_id)
+        .order_by(ChatMessage.created_at)
+        .limit(100)
+        .all()
+    )
     claude_messages = [
-        {"role": m["role"], "content": m["content"]}
-        for m in session["messages"]
+        {"role": m.role, "content": m.content}
+        for m in recent_messages
     ]
 
     # Call the agent
@@ -138,27 +165,27 @@ def send_message(body: SendMessageBody) -> dict:
         result = agent.chat(
             messages=claude_messages,
             language=language,
-            user_name=session.get("user_name"),
+            user_name=db_session.user_name,
         )
     except RuntimeError as e:
         logger.error(f"Agent error: {e}")
+        db.rollback()
         raise HTTPException(status_code=503, detail=str(e))
 
-    # Add assistant response to history
-    session["messages"].append({
-        "role": "assistant",
-        "content": result["response"],
-    })
-
-    # Keep conversation manageable (trim to last 50 turns)
-    if len(session["messages"]) > 100:
-        session["messages"] = session["messages"][-100:]
-
-    message_id = f"msg-{uuid.uuid4().hex[:10]}"
+    # Persist assistant response
+    assistant_msg_id = f"msg-{uuid.uuid4().hex[:10]}"
+    assistant_msg = ChatMessage(
+        message_id=assistant_msg_id,
+        session_id=body.session_id,
+        role="assistant",
+        content=result["response"],
+    )
+    db.add(assistant_msg)
+    db.commit()
 
     return {
         "session_id": body.session_id,
-        "message_id": message_id,
+        "message_id": assistant_msg_id,
         "response": result["response"],
         "tool_results": result.get("tool_results", []),
         "tokens_used": result.get("tokens", {}),
@@ -167,14 +194,21 @@ def send_message(body: SendMessageBody) -> dict:
 
 
 @router.get("/history/{session_id}", response_model=HistoryResponse)
-def get_history(session_id: str) -> dict:
+def get_history(session_id: str, db: Session = Depends(get_db)) -> dict:
     """Get chat history for a session."""
-    session = _sessions.get(session_id)
-    if not session:
+    db_session = db.query(ChatSession).filter(ChatSession.session_id == session_id).first()
+    if not db_session:
         raise HTTPException(status_code=404, detail="Session not found")
+
+    messages = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.session_id == session_id)
+        .order_by(ChatMessage.created_at)
+        .all()
+    )
 
     return {
         "session_id": session_id,
-        "messages": session["messages"],
-        "total": len(session["messages"]),
+        "messages": [m.to_dict() for m in messages],
+        "total": len(messages),
     }

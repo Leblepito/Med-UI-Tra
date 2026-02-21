@@ -6,12 +6,14 @@ from __future__ import annotations
 
 import logging
 import os
+import traceback
 from contextlib import asynccontextmanager
 from pathlib import Path
 import sys
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from database.connection import Base, engine
@@ -19,7 +21,33 @@ from database import models  # noqa: F401  — register all ORM models
 
 logger = logging.getLogger("thaiturk")
 
-# Try to import AgentRouter from 04_ai_agents (local dev / Railway monorepo)
+# ---------------------------------------------------------------------------
+# Env validation
+# ---------------------------------------------------------------------------
+
+_env = os.getenv("ENVIRONMENT", "development")
+_is_production = _env == "production"
+
+_REQUIRED_ENV_VARS_PROD = ["DATABASE_URL", "ANTHROPIC_API_KEY"]
+
+
+def _validate_env() -> None:
+    """Check required env vars at startup. Fail fast in production."""
+    missing = [v for v in _REQUIRED_ENV_VARS_PROD if not os.getenv(v)]
+    if missing and _is_production:
+        msg = f"Missing required environment variables: {', '.join(missing)}"
+        logger.critical(msg)
+        raise RuntimeError(msg)
+    elif missing:
+        logger.warning(f"Missing env vars (ok for dev): {', '.join(missing)}")
+
+
+_validate_env()
+
+# ---------------------------------------------------------------------------
+# Agent imports
+# ---------------------------------------------------------------------------
+
 _agents_path = Path(__file__).parent.parent / "04_ai_agents"
 if _agents_path.exists():
     sys.path.insert(0, str(_agents_path))
@@ -27,7 +55,6 @@ if _agents_path.exists():
 try:
     from master_orchestrator import AgentRouter  # noqa: E402
 except ImportError:
-    # Fallback stub when 04_ai_agents isn't available (e.g. isolated deployment)
     class AgentRouter:
         def route(self, payload: dict) -> dict:
             return {"status": "ok", "message": "Orchestrator not available", "payload": payload}
@@ -37,7 +64,28 @@ from routers.medical import router as medical_router  # noqa: E402
 from routers.travel import router as travel_router  # noqa: E402
 from routers.marketing import router as marketing_router  # noqa: E402
 from routers.chat import router as chat_router  # noqa: E402
+from routers.blog import router as blog_router  # noqa: E402
 
+# ---------------------------------------------------------------------------
+# Rate limiting
+# ---------------------------------------------------------------------------
+
+try:
+    from slowapi import Limiter, _rate_limit_exceeded_handler
+    from slowapi.util import get_remote_address
+    from slowapi.errors import RateLimitExceeded
+
+    limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+    _has_limiter = True
+except ImportError:
+    limiter = None  # type: ignore[assignment]
+    _has_limiter = False
+    logger.warning("slowapi not installed — rate limiting disabled")
+
+
+# ---------------------------------------------------------------------------
+# App setup
+# ---------------------------------------------------------------------------
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -54,18 +102,60 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AntiGravity ThaiTurk API",
     description="Medical · Travel · Factory · Marketing — AI-powered routing platform",
-    version="1.1.0",
+    version="1.2.0",
     lifespan=lifespan,
 )
 
-_origins = os.getenv("ALLOWED_ORIGINS", "*")
-_origin_list = ["*"] if _origins == "*" else [o.strip() for o in _origins.split(",") if o.strip()]
+# Attach limiter
+if _has_limiter:
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+# ---------------------------------------------------------------------------
+# Global exception handler
+# ---------------------------------------------------------------------------
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch unhandled exceptions and return structured error response."""
+    logger.error(f"Unhandled exception on {request.method} {request.url.path}: {exc}")
+    if not _is_production:
+        logger.error(traceback.format_exc())
+
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": {
+                "code": "INTERNAL_ERROR",
+                "message": "An internal error occurred." if _is_production else str(exc),
+                "details": None if _is_production else traceback.format_exc().split("\n")[-3:],
+            }
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# CORS
+# ---------------------------------------------------------------------------
+
+_origins = os.getenv("ALLOWED_ORIGINS", "")
+if not _origins:
+    if _is_production:
+        logger.warning("ALLOWED_ORIGINS not set in production — defaulting to RAILWAY_PUBLIC_DOMAIN")
+        _railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
+        _origin_list = [f"https://{_railway_domain}"] if _railway_domain else ["*"]
+    else:
+        _origin_list = ["http://localhost:3000", "http://127.0.0.1:3000"]
+else:
+    _origin_list = [o.strip() for o in _origins.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_origin_list,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 orchestrator = AgentRouter()
@@ -75,6 +165,7 @@ app.include_router(medical_router)
 app.include_router(travel_router)
 app.include_router(marketing_router)
 app.include_router(chat_router)
+app.include_router(blog_router)
 
 
 class InboundRequest(BaseModel):
@@ -85,7 +176,7 @@ class InboundRequest(BaseModel):
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "version": "1.1.0"}
+    return {"status": "ok", "version": "1.2.0", "environment": _env}
 
 
 @app.post("/api/classify")
@@ -96,13 +187,15 @@ def classify(req: InboundRequest) -> dict:
 
 @app.post("/api/admin/seed")
 def run_seed(secret: str = "") -> dict:
-    """One-time DB seeder — requires ADMIN_SECRET or ENVIRONMENT != production."""
-    import os
-    admin_secret = os.getenv("ADMIN_SECRET", "antigravity-seed-2026")
-    env = os.getenv("ENVIRONMENT", "development")
-    if env == "production" and secret != admin_secret:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=403, detail="Forbidden")
+    """One-time DB seeder — requires ADMIN_SECRET."""
+    admin_secret = os.getenv("ADMIN_SECRET")
+    if _is_production:
+        if not admin_secret:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=500, detail="ADMIN_SECRET env var not configured")
+        if secret != admin_secret:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=403, detail="Forbidden")
     from database.seed import seed_hospitals, seed_demo_patients
     from database.connection import SessionLocal
     session = SessionLocal()

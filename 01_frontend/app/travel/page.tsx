@@ -28,6 +28,7 @@ export default function TravelPage() {
     const [submitted, setSubmitted] = useState(false);
     const [loading, setLoading] = useState(false);
     const [travelResult, setTravelResult] = useState<TravelResponse | null>(null);
+    const [errorMsg, setErrorMsg] = useState("");
     const [form, setForm] = useState({
         full_name: "", phone: "", destination: "", check_in: "", check_out: "",
         guests: "2", notes: "",
@@ -37,6 +38,14 @@ export default function TravelPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setErrorMsg("");
+
+        // Date validation: check_out must be after check_in
+        if (form.check_in && form.check_out && form.check_out <= form.check_in) {
+            setErrorMsg(t("travelDateError") || "Check-out date must be after check-in date.");
+            return;
+        }
+
         setLoading(true);
         try {
             const res = await fetch("/api/travel/options", {
@@ -44,11 +53,15 @@ export default function TravelPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ ...form, language: lang }),
             });
-            if (!res.ok) throw new Error("API error");
+            if (!res.ok) {
+                const err = await res.json().catch(() => null);
+                throw new Error(err?.detail || "API error");
+            }
             const data: TravelResponse = await res.json();
             setTravelResult(data);
-        } catch {
+        } catch (err) {
             setTravelResult(null);
+            setErrorMsg(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");
         } finally {
             setLoading(false);
             setSubmitted(true);
@@ -162,24 +175,39 @@ export default function TravelPage() {
                                 </button>
                             </div>
                         ) : (
-                            <div className="rounded-2xl border border-teal-200 bg-teal-50 p-8 text-center animate-fade-up">
-                                <div className="text-4xl mb-3">🏖️</div>
-                                <h3 className="text-xl font-bold text-teal-800 mb-2">{t("travelSuccess")}</h3>
-                                <p className="text-teal-600 text-sm mb-5">{t("travelSuccessSub")}</p>
-                                <button onClick={() => setSubmitted(false)}
+                            <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center animate-fade-up">
+                                <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-red-100 flex items-center justify-center">
+                                    <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                    </svg>
+                                </div>
+                                <h3 className="text-lg font-bold text-red-800 mb-2">{t("formErrorTitle") || "Something went wrong"}</h3>
+                                <p className="text-red-600 text-sm mb-5">{errorMsg || t("formErrorGeneric") || "Please try again later."}</p>
+                                <button onClick={() => { setSubmitted(false); setErrorMsg(""); }}
                                     className="px-5 py-2 rounded-xl bg-teal-600 text-white text-sm font-bold hover:bg-teal-500 transition-colors">
-                                    {t("btnNewRequest")}
+                                    {t("btnTryAgain") || "Try Again"}
                                 </button>
                             </div>
                         )
                     ) : (
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            <input required placeholder={t("fieldName")} value={form.full_name}
-                                onChange={e => setForm({ ...form, full_name: e.target.value })}
-                                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:border-teal-400 transition-colors" />
-                            <input required placeholder={t("fieldPhone")} value={form.phone}
-                                onChange={e => setForm({ ...form, phone: e.target.value })}
-                                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:border-teal-400 transition-colors" />
+                            {errorMsg && (
+                                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+                                    {errorMsg}
+                                </div>
+                            )}
+                            <div>
+                                <label htmlFor="travel-name" className="block text-xs font-semibold text-slate-500 mb-1">{t("fieldName")}</label>
+                                <input id="travel-name" required placeholder={t("fieldName")} value={form.full_name}
+                                    onChange={e => setForm({ ...form, full_name: e.target.value })}
+                                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:border-teal-400 transition-colors" />
+                            </div>
+                            <div>
+                                <label htmlFor="travel-phone" className="block text-xs font-semibold text-slate-500 mb-1">{t("fieldPhone")}</label>
+                                <input id="travel-phone" required placeholder="+7 (999) 123-4567" value={form.phone}
+                                    onChange={e => setForm({ ...form, phone: e.target.value })}
+                                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:border-teal-400 transition-colors" />
+                            </div>
 
                             <select value={form.destination} onChange={e => setForm({ ...form, destination: e.target.value })}
                                 className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700 focus:outline-none focus:border-teal-400 transition-colors">

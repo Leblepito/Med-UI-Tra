@@ -18,10 +18,13 @@ class Base(DeclarativeBase):
 
 def _build_url() -> str:
     """Read DATABASE_URL from env, apply Railway postgres:// fix."""
-    url = os.getenv(
-        "DATABASE_URL",
-        "postgresql://postgres:postgres@localhost:5432/thaiturk",
-    )
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        _env = os.getenv("ENVIRONMENT", "development")
+        if _env == "production":
+            raise RuntimeError("DATABASE_URL environment variable is required in production")
+        # Local dev fallback
+        url = "postgresql://postgres:postgres@localhost:5432/thaiturk"
     # Railway uses postgres:// but SQLAlchemy 2.0 requires postgresql://
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql+psycopg2://", 1)

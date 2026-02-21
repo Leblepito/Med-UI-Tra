@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useLanguage } from "../lib/LanguageContext";
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -12,6 +12,8 @@ interface Message {
     role: "user" | "assistant";
     content: string;
     timestamp: string;
+    error?: boolean;
+    originalMessage?: string; // for retry
 }
 
 interface SessionResponse {
@@ -30,7 +32,27 @@ interface MessageResponse {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// API helpers (inline to avoid circular imports)
+// Simple Markdown renderer
+// ──────────────────────────────────────────────────────────────────────────
+
+function renderMarkdown(text: string): string {
+    return text
+        // Bold: **text** or __text__
+        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+        .replace(/__(.*?)__/g, "<strong>$1</strong>")
+        // Italic: *text* or _text_
+        .replace(/(?<!\*)\*(?!\*)(.*?)(?<!\*)\*(?!\*)/g, "<em>$1</em>")
+        .replace(/(?<!_)_(?!_)(.*?)(?<!_)_(?!_)/g, "<em>$1</em>")
+        // Unordered lists: lines starting with - or *
+        .replace(/^[\-\*]\s+(.+)$/gm, '<li class="ml-4 list-disc">$1</li>')
+        // Ordered lists: lines starting with 1. 2. etc
+        .replace(/^\d+\.\s+(.+)$/gm, '<li class="ml-4 list-decimal">$1</li>')
+        // Line breaks
+        .replace(/\n/g, "<br />");
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// API helpers
 // ──────────────────────────────────────────────────────────────────────────
 
 async function chatStartSession(language: string): Promise<SessionResponse> {
@@ -58,6 +80,33 @@ async function chatSendMessage(
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// localStorage helpers
+// ──────────────────────────────────────────────────────────────────────────
+
+const SESSION_KEY = "antigravity_chat_session";
+
+function loadSessionId(): string | null {
+    if (typeof window === "undefined") return null;
+    try {
+        return localStorage.getItem(SESSION_KEY);
+    } catch {
+        return null;
+    }
+}
+
+function saveSessionId(id: string) {
+    try {
+        localStorage.setItem(SESSION_KEY, id);
+    } catch { /* ignore */ }
+}
+
+function clearSessionId() {
+    try {
+        localStorage.removeItem(SESSION_KEY);
+    } catch { /* ignore */ }
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // Component
 // ──────────────────────────────────────────────────────────────────────────
 
@@ -70,6 +119,12 @@ export default function ChatWidget() {
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+
+    // Restore session from localStorage on mount
+    useEffect(() => {
+        const saved = loadSessionId();
+        if (saved) setSessionId(saved);
+    }, []);
 
     // Auto-scroll to bottom
     useEffect(() => {
@@ -90,6 +145,7 @@ export default function ChatWidget() {
             try {
                 const res = await chatStartSession(lang);
                 setSessionId(res.session_id);
+                saveSessionId(res.session_id);
                 setMessages([
                     {
                         id: "greeting",
@@ -105,6 +161,7 @@ export default function ChatWidget() {
                         role: "assistant",
                         content: t("chatError"),
                         timestamp: new Date().toISOString(),
+                        error: true,
                     },
                 ]);
             }
@@ -112,14 +169,13 @@ export default function ChatWidget() {
     }, [sessionId, lang, t]);
 
     // Send message
-    const handleSend = useCallback(async () => {
-        const text = inputText.trim();
-        if (!text || !sessionId || isLoading) return;
+    const sendMessage = useCallback(async (text: string) => {
+        if (!text.trim() || !sessionId || isLoading) return;
 
         const userMsg: Message = {
             id: `usr-${Date.now()}`,
             role: "user",
-            content: text,
+            content: text.trim(),
             timestamp: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, userMsg]);
@@ -127,7 +183,7 @@ export default function ChatWidget() {
         setIsLoading(true);
 
         try {
-            const res = await chatSendMessage(sessionId, text, lang);
+            const res = await chatSendMessage(sessionId, text.trim(), lang);
             setMessages((prev) => [
                 ...prev,
                 {
@@ -145,28 +201,48 @@ export default function ChatWidget() {
                     role: "assistant",
                     content: t("chatError"),
                     timestamp: new Date().toISOString(),
+                    error: true,
+                    originalMessage: text.trim(),
                 },
             ]);
         } finally {
             setIsLoading(false);
         }
-    }, [inputText, sessionId, isLoading, lang, t]);
+    }, [sessionId, isLoading, lang, t]);
 
-    // Quick action
+    const handleSend = useCallback(() => {
+        sendMessage(inputText);
+    }, [inputText, sendMessage]);
+
+    // Retry failed message
+    const handleRetry = useCallback((originalMessage: string, errorMsgId: string) => {
+        // Remove the error message
+        setMessages((prev) => prev.filter((m) => m.id !== errorMsgId));
+        sendMessage(originalMessage);
+    }, [sendMessage]);
+
+    // Quick action — auto-send
     const handleQuickAction = useCallback(
         (value: string) => {
             if (!sessionId || isLoading) return;
-            setInputText(value);
+            sendMessage(value);
         },
-        [sessionId, isLoading],
+        [sessionId, isLoading, sendMessage],
     );
 
+    // Clear chat history
+    const handleClearChat = useCallback(() => {
+        setMessages([]);
+        setSessionId(null);
+        clearSessionId();
+    }, []);
+
     // Quick actions data
-    const quickActions = [
+    const quickActions = useMemo(() => [
         { label: t("chatQuickPricing"), value: t("chatQuickPricingValue") },
         { label: t("chatQuickHospitals"), value: t("chatQuickHospitalsValue") },
         { label: t("chatQuickBooking"), value: t("chatQuickBookingValue") },
-    ];
+    ], [t]);
 
     // ── RENDER ─────────────────────────────────────────────────────────────
 
@@ -202,6 +278,8 @@ export default function ChatWidget() {
                                sm:bottom-6 sm:h-[600px] sm:max-h-[80vh] sm:w-[400px] sm:rounded-2xl
                                ${dir === "rtl" ? "left-0 sm:left-6" : "right-0 sm:right-6"}`}
                     dir={dir}
+                    role="dialog"
+                    aria-label={t("chatTitle")}
                 >
                     {/* ── Header ── */}
                     <div className="flex items-center justify-between bg-gradient-to-r from-cyan-600 to-cyan-500 px-4 py-3 text-white">
@@ -224,19 +302,35 @@ export default function ChatWidget() {
                                 </div>
                             </div>
                         </div>
-                        <button
-                            onClick={() => setIsOpen(false)}
-                            className="rounded-lg p-1.5 transition-colors hover:bg-white/20"
-                            aria-label="Close chat"
-                        >
-                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
+                        <div className="flex items-center gap-1">
+                            {/* Clear chat button */}
+                            {messages.length > 0 && (
+                                <button
+                                    onClick={handleClearChat}
+                                    className="rounded-lg p-1.5 transition-colors hover:bg-white/20"
+                                    aria-label="Clear chat"
+                                    title="Clear chat"
+                                >
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            )}
+                            {/* Close button */}
+                            <button
+                                onClick={() => setIsOpen(false)}
+                                className="rounded-lg p-1.5 transition-colors hover:bg-white/20"
+                                aria-label="Close chat"
+                            >
+                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
 
                     {/* ── Messages ── */}
-                    <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50/50 px-4 py-3">
+                    <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50/50 px-4 py-3" aria-live="polite" aria-atomic="false">
                         {messages.map((msg) => (
                             <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                                 <div
@@ -246,12 +340,30 @@ export default function ChatWidget() {
                                             : "rounded-bl-md border border-slate-100 bg-white text-slate-700 shadow-sm"
                                     }`}
                                 >
-                                    <div className="whitespace-pre-wrap">{msg.content}</div>
-                                    <div className={`mt-1 text-[10px] ${msg.role === "user" ? "text-cyan-200" : "text-slate-400"}`}>
-                                        {new Date(msg.timestamp).toLocaleTimeString([], {
-                                            hour: "2-digit",
-                                            minute: "2-digit",
-                                        })}
+                                    {msg.role === "assistant" ? (
+                                        <div
+                                            className="whitespace-pre-wrap [&_strong]:font-bold [&_em]:italic [&_li]:text-sm"
+                                            dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
+                                        />
+                                    ) : (
+                                        <div className="whitespace-pre-wrap">{msg.content}</div>
+                                    )}
+                                    <div className={`mt-1 flex items-center gap-2 text-[10px] ${msg.role === "user" ? "text-cyan-200" : "text-slate-400"}`}>
+                                        <span>
+                                            {new Date(msg.timestamp).toLocaleTimeString([], {
+                                                hour: "2-digit",
+                                                minute: "2-digit",
+                                            })}
+                                        </span>
+                                        {/* Retry button for error messages */}
+                                        {msg.error && msg.originalMessage && (
+                                            <button
+                                                onClick={() => handleRetry(msg.originalMessage!, msg.id)}
+                                                className="rounded px-1.5 py-0.5 text-[10px] font-semibold text-red-500 border border-red-200 bg-red-50 hover:bg-red-100 transition-colors"
+                                            >
+                                                Retry
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -297,7 +409,9 @@ export default function ChatWidget() {
                         }}
                         className="flex items-center gap-2 border-t border-slate-100 bg-white px-4 py-3"
                     >
+                        <label htmlFor="chat-input" className="sr-only">{t("chatPlaceholder")}</label>
                         <input
+                            id="chat-input"
                             ref={inputRef}
                             type="text"
                             value={inputText}
@@ -315,13 +429,18 @@ export default function ChatWidget() {
                                        transition-all focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/20
                                        disabled:opacity-50"
                             dir={dir}
+                            aria-describedby="chat-status"
                         />
+                        <span id="chat-status" className="sr-only">
+                            {isLoading ? "Sending message..." : "Ready to send"}
+                        </span>
                         <button
                             type="submit"
                             disabled={!inputText.trim() || isLoading || !sessionId}
                             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl
                                        bg-cyan-600 text-white transition-all
                                        hover:bg-cyan-700 disabled:opacity-40"
+                            aria-label="Send message"
                         >
                             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path

@@ -7,12 +7,21 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 from typing import Optional, Literal
 
 from database.connection import get_db
+
+# Rate limiting (graceful)
+try:
+    from slowapi import Limiter
+    from slowapi.util import get_remote_address
+    limiter = Limiter(key_func=get_remote_address)
+    _has_limiter = True
+except ImportError:
+    _has_limiter = False
 
 # Agent path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "04_ai_agents"))
@@ -58,7 +67,7 @@ class StatusUpdateBody(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.post("/intake")
-def submit_intake(body: IntakeBody, db: Session = Depends(get_db)) -> dict:
+def submit_intake(body: IntakeBody, request: Request, db: Session = Depends(get_db)) -> dict:
     """
     Yeni hasta başvurusu.
     Prosedür sınıflandırması, hastane eşleştirmesi ve komisyon hesaplaması yapar.

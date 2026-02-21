@@ -1,6 +1,6 @@
 """
 AntiGravity Ventures — SQLAlchemy ORM Models
-7 tables: hospitals, patients, travel_requests, campaigns, leads, publish_queue, conversions.
+9 tables: hospitals, patients, travel_requests, campaigns, leads, publish_queue, conversions, chat_sessions, chat_messages.
 """
 from __future__ import annotations
 
@@ -264,4 +264,52 @@ class Conversion(Base):
             "campaign_id": self.campaign_id,
             "revenue_usd": float(self.revenue_usd) if self.revenue_usd else None,
             "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+        }
+
+
+# ---------------------------------------------------------------------------
+# 8. chat_sessions
+# ---------------------------------------------------------------------------
+
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
+
+    session_id = Column(String(30), primary_key=True)
+    language = Column(String(5), nullable=False, server_default="en")
+    user_name = Column(String(100), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    messages = relationship("ChatMessage", back_populates="session", order_by="ChatMessage.created_at")
+
+    def to_dict(self) -> dict:
+        return {
+            "session_id": self.session_id,
+            "language": self.language,
+            "user_name": self.user_name,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ---------------------------------------------------------------------------
+# 9. chat_messages
+# ---------------------------------------------------------------------------
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    message_id = Column(String(30), primary_key=True)
+    session_id = Column(String(30), ForeignKey("chat_sessions.session_id"), nullable=False)
+    role = Column(String(10), nullable=False)  # "user" or "assistant"
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    session = relationship("ChatSession", back_populates="messages")
+
+    def to_dict(self) -> dict:
+        return {
+            "message_id": self.message_id,
+            "role": self.role,
+            "content": self.content,
+            "timestamp": self.created_at.isoformat() if self.created_at else None,
         }
