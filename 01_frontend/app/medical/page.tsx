@@ -802,6 +802,7 @@ export default function MedicalPage() {
     const [hospitalsLoading, setHospitalsLoading] = useState(true);
     const [selectedTreatment, setSelectedTreatment] = useState<string | null>(null);
     const [openFaq, setOpenFaq] = useState<number | null>(null);
+    const [apiError, setApiError] = useState("");
     const [form, setForm] = useState({
         full_name: "",
         phone: "",
@@ -923,6 +924,7 @@ export default function MedicalPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
+        setApiError("");
         try {
             const res = await fetch("/api/medical/intake", {
                 method: "POST",
@@ -936,27 +938,9 @@ export default function MedicalPage() {
             if (!res.ok) throw new Error(await res.text());
             const data: IntakeResult = await res.json();
             setResult(data);
-        } catch {
-            const demoHospital = TURKEY_HOSPITALS[2];
-            const patientId = `MED-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-            setResult({
-                patient_id: patientId,
-                procedure_category: "aesthetic",
-                matched_hospital: {
-                    name: demoHospital.name,
-                    city: demoHospital.city,
-                    country: demoHospital.country,
-                    rating: demoHospital.rating,
-                    commission_rate: demoHospital.commission_rate,
-                    contact_whatsapp: "+905003456789",
-                    specialties: demoHospital.specialties,
-                    languages: demoHospital.languages,
-                },
-                estimated_procedure_cost_usd: 4500,
-                commission_usd: 4500 * demoHospital.commission_rate,
-                coordinator_message: buildCoordinatorMessage(patientId, demoHospital.name, 4500),
-                next_steps: buildNextSteps(demoHospital.city),
-            });
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : "Submission failed";
+            setApiError(msg);
         } finally {
             setLoading(false);
         }
@@ -1306,6 +1290,17 @@ export default function MedicalPage() {
                                     <p className="text-xs text-slate-500 mt-0.5">{t("medFormSub")}</p>
                                 </div>
                             </div>
+
+                            {apiError && (
+                                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 flex items-start gap-3">
+                                    <span className="text-red-400 mt-0.5">&#9888;</span>
+                                    <div className="flex-1">
+                                        <p className="font-semibold">Submission failed</p>
+                                        <p className="mt-1 text-red-600 text-xs">{apiError}</p>
+                                    </div>
+                                    <button type="button" onClick={() => setApiError("")} className="text-red-400 hover:text-red-600 text-lg leading-none">&times;</button>
+                                </div>
+                            )}
 
                             <form onSubmit={handleSubmit} className="space-y-5">
                                 {/* Name + Phone */}

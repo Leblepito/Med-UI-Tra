@@ -181,7 +181,7 @@ function BlogPreview({ lang, t }: { lang: Language; t: (key: TranslationKey) => 
     useEffect(() => {
         getBlogFeatured(lang, 3)
             .then((data) => setPosts(data.posts as typeof posts))
-            .catch(() => {});
+            .catch(() => { /* blog unavailable — section hidden */ });
     }, [lang]);
 
     if (posts.length === 0) return null;

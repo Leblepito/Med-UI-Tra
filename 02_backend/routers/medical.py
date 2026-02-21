@@ -76,7 +76,10 @@ def submit_intake(body: IntakeBody, request: Request, db: Session = Depends(get_
         result = agent.process_intake(body.model_dump(), db=db)
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import os
+        is_prod = os.getenv("ENVIRONMENT") == "production"
+        detail = "An error occurred processing your intake." if is_prod else str(e)
+        raise HTTPException(status_code=500, detail=detail)
 
 
 @router.get("/patient/{patient_id}")

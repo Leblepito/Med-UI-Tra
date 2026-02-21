@@ -24,7 +24,7 @@ export interface ClassifyResult {
 export interface MedicalIntakeBody {
     full_name: string;
     phone: string;
-    language: "ru" | "en" | "tr" | "th";
+    language: "ru" | "en" | "tr" | "th" | "ar" | "zh";
     procedure_interest: string;
     urgency: "routine" | "soon" | "urgent" | "emergency";
     budget_usd?: number | null;
@@ -123,9 +123,12 @@ async function apiFetch<T>(
 // Endpoints
 // ──────────────────────────────────────────────────
 
-/** Health check */
-export const healthCheck = () =>
-    apiFetch<{ status: string; version: string }>("/health".replace("/api", ""));
+/** Health check — backend exposes /health (not under /api) */
+export const healthCheck = async () => {
+    const res = await fetch("/health", { headers: { "Content-Type": "application/json" } });
+    if (!res.ok) throw new Error(`API error ${res.status}`);
+    return res.json() as Promise<{ status: string; version: string }>;
+};
 
 /** Classify incoming request text → sector */
 export const classifyRequest = (body: ClassifyRequest) =>

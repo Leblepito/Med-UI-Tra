@@ -144,7 +144,11 @@ if not _origins:
     if _is_production:
         logger.warning("ALLOWED_ORIGINS not set in production — defaulting to RAILWAY_PUBLIC_DOMAIN")
         _railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
-        _origin_list = [f"https://{_railway_domain}"] if _railway_domain else ["*"]
+        if _railway_domain:
+            _origin_list = [f"https://{_railway_domain}"]
+        else:
+            logger.warning("Neither ALLOWED_ORIGINS nor RAILWAY_PUBLIC_DOMAIN set — CORS restricted to Railway internal")
+            _origin_list = []
     else:
         _origin_list = ["http://localhost:3000", "http://127.0.0.1:3000"]
 else:
