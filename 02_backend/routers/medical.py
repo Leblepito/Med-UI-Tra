@@ -77,9 +77,10 @@ def submit_intake(body: IntakeBody, request: Request, db: Session = Depends(get_
         result = agent.process_intake(body.model_dump(), db=db)
         return result
     except Exception as e:
-        import os
+        import os, traceback, logging
+        logging.getLogger("thaiturk.medical").error(f"Intake error: {traceback.format_exc()}")
         is_prod = os.getenv("ENVIRONMENT") == "production"
-        detail = "An error occurred processing your intake." if is_prod else str(e)
+        detail = f"DEBUG: {type(e).__name__}: {e}"  # TEMPORARY — revert after debug
         raise HTTPException(status_code=500, detail=detail)
 
 
