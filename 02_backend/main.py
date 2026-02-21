@@ -36,6 +36,7 @@ except ImportError:
 from routers.medical import router as medical_router  # noqa: E402
 from routers.travel import router as travel_router  # noqa: E402
 from routers.marketing import router as marketing_router  # noqa: E402
+from routers.chat import router as chat_router  # noqa: E402
 
 
 @asynccontextmanager
@@ -73,6 +74,7 @@ orchestrator = AgentRouter()
 app.include_router(medical_router)
 app.include_router(travel_router)
 app.include_router(marketing_router)
+app.include_router(chat_router)
 
 
 class InboundRequest(BaseModel):

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Lora, Manrope, Noto_Sans_Thai, Noto_Kufi_Arabic, Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
 import { LanguageProvider } from "../lib/LanguageContext";
+import ChatWidget from "../components/ChatWidget";
 
 const lora = Lora({
     subsets: ["latin", "cyrillic", "latin-ext"],
@@ -64,6 +65,7 @@ export default function RootLayout({
             >
                 <LanguageProvider>
                     {children}
+                    <ChatWidget />
                 </LanguageProvider>
             </body>
         </html>

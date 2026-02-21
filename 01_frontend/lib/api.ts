@@ -163,3 +163,53 @@ export const submitTravelRequest = (body: TravelRequestBody) =>
 /** Get available travel destinations */
 export const getDestinations = () =>
     apiFetch<{ destinations: Destination[] }>("/travel/destinations");
+
+// ──────────────────────────────────────────────────
+// Chat
+// ──────────────────────────────────────────────────
+
+export interface ChatStartSessionBody {
+    language: string;
+    user_name?: string;
+}
+
+export interface ChatStartSessionResponse {
+    session_id: string;
+    greeting: string;
+    language: string;
+}
+
+export interface ChatSendMessageBody {
+    session_id: string;
+    message: string;
+    language?: string;
+}
+
+export interface ChatMessageResponse {
+    session_id: string;
+    message_id: string;
+    response: string;
+    tool_results: Record<string, unknown>[];
+    tokens_used: { input: number; output: number };
+    timestamp: string;
+}
+
+/** Start a new chat session */
+export const chatStartSession = (body: ChatStartSessionBody) =>
+    apiFetch<ChatStartSessionResponse>("/chat/session", {
+        method: "POST",
+        body: JSON.stringify(body),
+    });
+
+/** Send a chat message and get AI response */
+export const chatSendMessage = (body: ChatSendMessageBody) =>
+    apiFetch<ChatMessageResponse>("/chat/message", {
+        method: "POST",
+        body: JSON.stringify(body),
+    });
+
+/** Get chat history for a session */
+export const chatGetHistory = (sessionId: string) =>
+    apiFetch<{ session_id: string; messages: Record<string, unknown>[]; total: number }>(
+        `/chat/history/${sessionId}`,
+    );
