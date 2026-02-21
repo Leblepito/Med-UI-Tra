@@ -166,41 +166,6 @@ def send_message(body: SendMessageBody) -> dict:
     }
 
 
-@router.get("/debug")
-def debug_chat() -> dict:
-    """Debug endpoint — check agent availability and API key."""
-    import os
-    has_key = bool(os.getenv("ANTHROPIC_API_KEY", ""))
-    key_prefix = os.getenv("ANTHROPIC_API_KEY", "")[:12] + "..." if has_key else "NOT SET"
-    try:
-        from agents.chat_agent import MedicalSecretaryAgent, anthropic as anth_module
-        agent_ok = True
-        sdk_ok = anth_module is not None
-    except Exception as e:
-        agent_ok = False
-        sdk_ok = False
-        return {"agent_loaded": False, "error": str(e), "api_key": key_prefix}
-
-    # Try creating client
-    client_ok = False
-    client_err = ""
-    if sdk_ok and has_key:
-        try:
-            agent = MedicalSecretaryAgent()
-            _ = agent.client  # triggers lazy init
-            client_ok = True
-        except Exception as e:
-            client_err = str(e)
-
-    return {
-        "agent_loaded": agent_ok,
-        "anthropic_sdk": sdk_ok,
-        "api_key": key_prefix,
-        "client_ok": client_ok,
-        "client_error": client_err or None,
-    }
-
-
 @router.get("/history/{session_id}", response_model=HistoryResponse)
 def get_history(session_id: str) -> dict:
     """Get chat history for a session."""
