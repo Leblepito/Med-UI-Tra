@@ -256,3 +256,66 @@ export const getBlogCategories = () =>
 /** Get featured blog posts */
 export const getBlogFeatured = (language = "en", limit = 3) =>
     apiFetch<{ posts: BlogPostItem[] }>(`/blog/featured?language=${language}&limit=${limit}`);
+
+// ──────────────────────────────────────────────────
+// Meshy Visualization
+// ──────────────────────────────────────────────────
+
+export interface VizQuestion {
+    id: string;
+    question_en: string;
+    question_tr: string;
+    question_ru: string;
+    type: string;
+    options: string;
+}
+
+export interface VizQuestionsResponse {
+    category: string;
+    questions: VizQuestion[];
+}
+
+export interface VizStartResponse {
+    viz_id: string;
+    meshy_task_id: string;
+    status: string;
+    message: string;
+}
+
+export interface VizStatusResponse {
+    viz_id: string;
+    status: string;
+    output_image_url: string | null;
+    procedure_category: string;
+}
+
+export interface VizPostOpResponse {
+    viz_id: string;
+    similarity_score: number;
+    message: string;
+}
+
+/** Get visualization questions for a procedure category */
+export const getVisualizationQuestions = (category: string) =>
+    apiFetch<VizQuestionsResponse>("/meshy/questions", {
+        method: "POST",
+        body: JSON.stringify({ category }),
+    });
+
+/** Start a new visualization job */
+export const startVisualization = (image_base64: string, procedure_category: string, answers: Record<string, string>) =>
+    apiFetch<VizStartResponse>("/meshy/visualize", {
+        method: "POST",
+        body: JSON.stringify({ image_base64, procedure_category, answers }),
+    });
+
+/** Check visualization status */
+export const checkVisualizationStatus = (vizId: string) =>
+    apiFetch<VizStatusResponse>(`/meshy/status/${vizId}`);
+
+/** Submit post-op photo for comparison */
+export const submitPostOpPhoto = (vizId: string, image_base64: string) =>
+    apiFetch<VizPostOpResponse>("/meshy/post-op", {
+        method: "POST",
+        body: JSON.stringify({ viz_id: vizId, image_base64 }),
+    });

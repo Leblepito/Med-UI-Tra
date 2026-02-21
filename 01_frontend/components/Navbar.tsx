@@ -14,6 +14,7 @@ export default function Navbar() {
     const links = [
         { href: "/", label: t("navHome"), icon: "🏠" },
         { href: "/medical", label: t("navMedical"), icon: "🏥" },
+        { href: "/medical/visualize", label: t("navVisualize"), icon: "🔮" },
         { href: "/travel", label: t("navTravel"), icon: "🏖️" },
         { href: "/blog", label: t("blogNavLabel"), icon: "📝" },
         { href: "/factory", label: t("navFactory"), icon: "🏭", soon: true },

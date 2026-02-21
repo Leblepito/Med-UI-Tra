@@ -28,7 +28,7 @@ logger = logging.getLogger("thaiturk")
 _env = os.getenv("ENVIRONMENT", "development")
 _is_production = _env == "production"
 
-_REQUIRED_ENV_VARS_PROD = ["DATABASE_URL", "ANTHROPIC_API_KEY"]
+_REQUIRED_ENV_VARS_PROD = ["DATABASE_URL", "ANTHROPIC_API_KEY", "MESHY_API_KEY"]
 
 
 def _validate_env() -> None:
@@ -65,6 +65,7 @@ from routers.travel import router as travel_router  # noqa: E402
 from routers.marketing import router as marketing_router  # noqa: E402
 from routers.chat import router as chat_router  # noqa: E402
 from routers.blog import router as blog_router  # noqa: E402
+from routers.meshy import router as meshy_router  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Rate limiting
@@ -185,6 +186,7 @@ app.include_router(travel_router)
 app.include_router(marketing_router)
 app.include_router(chat_router)
 app.include_router(blog_router)
+app.include_router(meshy_router)
 
 
 class InboundRequest(BaseModel):

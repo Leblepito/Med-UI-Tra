@@ -1,6 +1,6 @@
 """
 AntiGravity Ventures — SQLAlchemy ORM Models
-9 tables: hospitals, patients, travel_requests, campaigns, leads, publish_queue, conversions, chat_sessions, chat_messages.
+10 tables: hospitals, patients, travel_requests, campaigns, leads, publish_queue, conversions, chat_sessions, chat_messages, visualizations.
 """
 from __future__ import annotations
 
@@ -312,4 +312,36 @@ class ChatMessage(Base):
             "role": self.role,
             "content": self.content,
             "timestamp": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ---------------------------------------------------------------------------
+# 10. visualizations (Meshy.ai Before/After)
+# ---------------------------------------------------------------------------
+
+class Visualization(Base):
+    __tablename__ = "visualizations"
+
+    viz_id = Column(String(25), primary_key=True)
+    ip_address = Column(String(45), nullable=False)
+    procedure_category = Column(String(50), nullable=False)
+    questions_answers = Column(JSONB, nullable=True)
+    meshy_task_id = Column(String(100), nullable=True)
+    status = Column(String(20), nullable=False, server_default="pending")
+    input_image_b64 = Column(Text, nullable=False)
+    output_image_url = Column(Text, nullable=True)
+    post_op_image_b64 = Column(Text, nullable=True)
+    similarity_score = Column(Numeric(5, 2), nullable=True)
+    meshy_response = Column(JSONB, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    def to_dict(self) -> dict:
+        return {
+            "viz_id": self.viz_id,
+            "procedure_category": self.procedure_category,
+            "status": self.status,
+            "output_image_url": self.output_image_url,
+            "similarity_score": float(self.similarity_score) if self.similarity_score else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }

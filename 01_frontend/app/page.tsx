@@ -363,6 +363,27 @@ export default function HomePage() {
                 </div>
             </section>
 
+            {/* ── AI VISUALIZATION CTA ────────────────────────────────── */}
+            <section className="section-padding bg-gradient-to-br from-cyan-600 to-sky-700">
+                <div className="container-main text-center">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-1.5 mb-6">
+                        <span className="text-xs font-bold text-white tracking-widest uppercase">AI Powered</span>
+                    </div>
+                    <h2 className="text-2xl sm:text-3xl font-display font-bold text-white mb-4">
+                        {t("vizCtaHomeTitle")}
+                    </h2>
+                    <p className="text-cyan-100 text-sm sm:text-base max-w-xl mx-auto mb-8 leading-relaxed">
+                        {t("vizCtaHomeSub")}
+                    </p>
+                    <Link
+                        href="/medical/visualize"
+                        className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-white text-cyan-700 font-bold shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-200"
+                    >
+                        {t("vizCtaHomeBtn")}
+                    </Link>
+                </div>
+            </section>
+
             {/* ── TRUST / WHY CHOOSE US ──────────────────────────────── */}
             <section className="section-padding bg-slate-50">
                 <div className="container-main">
