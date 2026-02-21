@@ -52,7 +52,7 @@ export const metadata: Metadata = {
         siteName: "AntiGravity Medical",
         title: "AntiGravity Medical — Phuket & Turkey Health Corridor",
         description: "Premium medical tourism coordination. JCI-accredited hospitals, 20-70% savings.",
-        url: "https://antigravitymedical.com",
+        url: "https://leblepito.com",
     },
     twitter: {
         card: "summary_large_image",
@@ -60,7 +60,7 @@ export const metadata: Metadata = {
         description: "Premium medical tourism coordination between Phuket and Turkey.",
     },
     alternates: {
-        canonical: "https://antigravitymedical.com",
+        canonical: "https://leblepito.com",
     },
 };
 

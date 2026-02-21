@@ -35,8 +35,17 @@ interface MessageResponse {
 // Simple Markdown renderer
 // ──────────────────────────────────────────────────────────────────────────
 
-function renderMarkdown(text: string): string {
+function escapeHtml(text: string): string {
     return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function renderMarkdown(text: string): string {
+    return escapeHtml(text)
         // Bold: **text** or __text__
         .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
         .replace(/__(.*?)__/g, "<strong>$1</strong>")

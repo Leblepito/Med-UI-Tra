@@ -456,7 +456,7 @@ export default function HomePage() {
                                 <div className="flex items-center gap-2"><span>📍</span><span>Phuket, Thailand</span></div>
                                 <div className="flex items-center gap-2"><span>📍</span><span>Istanbul & Antalya, Turkey</span></div>
                                 <div className="flex items-center gap-2"><span>💬</span><span>+66 XX XXX XXXX</span></div>
-                                <div className="flex items-center gap-2"><span>📧</span><span>info@antigravitymedical.com</span></div>
+                                <div className="flex items-center gap-2"><span>📧</span><span>info@leblepito.com</span></div>
                             </div>
                         </div>
                     </div>

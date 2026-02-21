@@ -758,7 +758,7 @@ function TreatmentDetailModal({
 
 function PatientJourney({ lang }: { lang: string }) {
     const steps: Record<string, string[]> = {
-        ru: ["Заявка", "Подбор клиники", "Консültация", "Лечение"],
+        ru: ["Заявка", "Подбор клиники", "Консультация", "Лечение"],
         en: ["Inquiry", "Clinic Match", "Consultation", "Treatment"],
         tr: ["Başvuru", "Klinik Eşleşme", "Konsültasyon", "Tedavi"],
         th: ["ส่งคำขอ", "จับคู่คลินิค", "ปรึกษา", "รักษา"],
@@ -1442,7 +1442,7 @@ export default function MedicalPage() {
                                         <div>
                                             <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">{t("medCommission")}</div>
                                             <div className="text-lg text-cyan-600 font-mono font-bold">
-                                                ${result.commission_usd.toLocaleString()} <span className="text-sm text-slate-400">({result.commission_rate_pct ?? `${(result.matched_hospital.commission_rate * 100).toFixed(0)}%`})</span>
+                                                ${result.commission_usd.toLocaleString()} <span className="text-sm text-slate-400">({result.commission_rate_pct ?? (result.matched_hospital?.commission_rate ? `${(result.matched_hospital.commission_rate * 100).toFixed(0)}%` : "")})</span>
                                             </div>
                                         </div>
                                     </div>

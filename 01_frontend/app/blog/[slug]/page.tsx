@@ -124,7 +124,7 @@ export default function BlogDetailPage() {
 
     const currentUrl = typeof window !== "undefined" ? window.location.href : "";
 
-    const siteUrl = "https://antigravitymedical.com";
+    const siteUrl = "https://leblepito.com";
 
     return (
         <div className="min-h-screen bg-white text-slate-800" dir={lang === "ar" ? "rtl" : "ltr"}>

@@ -18,8 +18,8 @@ export function OrganizationJsonLd() {
                 "@context": "https://schema.org",
                 "@type": "Organization",
                 name: "AntiGravity Medical",
-                url: "https://antigravitymedical.com",
-                logo: "https://antigravitymedical.com/logo.png",
+                url: "https://leblepito.com",
+                logo: "https://leblepito.com/logo.png",
                 description:
                     "Premium medical tourism coordination between Phuket, Thailand and Turkey. JCI-accredited hospitals, 20-70% savings.",
                 contactPoint: {
@@ -44,7 +44,7 @@ export function MedicalBusinessJsonLd() {
                 "@context": "https://schema.org",
                 "@type": "MedicalBusiness",
                 name: "AntiGravity Medical",
-                url: "https://antigravitymedical.com",
+                url: "https://leblepito.com",
                 description:
                     "Medical tourism coordination — rhinoplasty, hair transplant, dental, IVF and more between Phuket and Turkey.",
                 medicalSpecialty: [
@@ -106,10 +106,10 @@ export function ArticleJsonLd({
                     name: "AntiGravity Medical",
                     logo: {
                         "@type": "ImageObject",
-                        url: "https://antigravitymedical.com/logo.png",
+                        url: "https://leblepito.com/logo.png",
                     },
                 },
-                image: image || "https://antigravitymedical.com/og-default.jpg",
+                image: image || "https://leblepito.com/og-default.jpg",
                 mainEntityOfPage: {
                     "@type": "WebPage",
                     "@id": url,

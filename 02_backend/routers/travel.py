@@ -35,7 +35,7 @@ agent = TravelAgent()
 class TravelRequestBody(BaseModel):
     full_name: str = Field(..., min_length=2, max_length=100)
     phone: str = Field(..., description="International phone format")
-    language: Literal["ru", "en", "tr", "th"] = "en"
+    language: Literal["ru", "en", "tr", "th", "ar", "zh"] = "en"
     destination: Optional[str] = None
     check_in: Optional[str] = None
     check_out: Optional[str] = None

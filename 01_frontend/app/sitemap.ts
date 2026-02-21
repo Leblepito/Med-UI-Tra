@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const baseUrl = "https://antigravitymedical.com";
+const baseUrl = "https://leblepito.com";
 
 const BLOG_SLUGS = [
     "hair-transplant-turkey-guide",
