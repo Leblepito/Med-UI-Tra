@@ -158,13 +158,14 @@ async def global_exception_handler(request: Request, exc: Exception):
 _origins = os.getenv("ALLOWED_ORIGINS", "")
 if not _origins:
     if _is_production:
-        logger.warning("ALLOWED_ORIGINS not set in production — defaulting to RAILWAY_PUBLIC_DOMAIN")
+        logger.warning("ALLOWED_ORIGINS not set in production — defaulting to known domains")
+        _origin_list = [
+            "https://leblepito.com",
+            "https://www.leblepito.com",
+        ]
         _railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
         if _railway_domain:
-            _origin_list = [f"https://{_railway_domain}"]
-        else:
-            logger.warning("Neither ALLOWED_ORIGINS nor RAILWAY_PUBLIC_DOMAIN set — CORS restricted to Railway internal")
-            _origin_list = []
+            _origin_list.append(f"https://{_railway_domain}")
     else:
         _origin_list = ["http://localhost:3000", "http://127.0.0.1:3000"]
 else:
