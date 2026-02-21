@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Navbar from "../../../components/Navbar";
 import ShareButtons from "../../../components/ShareButtons";
+import { ArticleJsonLd, BreadcrumbJsonLd } from "../../../components/JsonLd";
 import { useLanguage } from "../../../lib/LanguageContext";
 import { getBlogPost, getBlogFeatured, type BlogPostItem } from "../../../lib/api";
 import { useParams } from "next/navigation";
@@ -21,8 +22,18 @@ const CATEGORY_LABELS: Record<string, Record<string, string>> = {
     medical_tourism_guide: { en: "Guide", ru: "Руководство", tr: "Rehber", th: "คู่มือ", ar: "دليل", zh: "指南" },
 };
 
+function escapeHtml(text: string): string {
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 function renderMarkdown(md: string): string {
-    let html = md;
+    // Escape HTML entities first, then apply markdown transforms
+    let html = escapeHtml(md);
     // H2
     html = html.replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold text-slate-800 mt-8 mb-4">$1</h2>');
     // H3
@@ -58,6 +69,7 @@ export default function BlogDetailPage() {
     const [post, setPost] = useState<BlogPostItem | null>(null);
     const [related, setRelated] = useState<BlogPostItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
 
     useEffect(() => {
         if (!slug) return;
@@ -68,7 +80,7 @@ export default function BlogDetailPage() {
             setPost(postData.post);
             setRelated(featuredData.posts.filter((p) => p.slug !== slug).slice(0, 2));
             setLoading(false);
-        }).catch(() => setLoading(false));
+        }).catch(() => { setError(true); setLoading(false); });
     }, [slug, lang]);
 
     const getCategoryLabel = (catId: string) => {
@@ -91,12 +103,17 @@ export default function BlogDetailPage() {
         );
     }
 
-    if (!post) {
+    if (error || !post) {
         return (
             <div className="min-h-screen bg-white">
                 <Navbar />
                 <div className="container-main py-16 text-center">
-                    <h1 className="text-2xl font-bold text-slate-800 mb-4">Post not found</h1>
+                    <h1 className="text-2xl font-bold text-slate-800 mb-4">
+                        {error ? "Something went wrong" : "Post not found"}
+                    </h1>
+                    <p className="text-slate-400 mb-6">
+                        {error ? "Please try again later." : "The blog post you are looking for does not exist."}
+                    </p>
                     <Link href="/blog" className="text-cyan-600 hover:text-cyan-700 font-semibold">
                         {t("blogBack")}
                     </Link>
@@ -107,9 +124,28 @@ export default function BlogDetailPage() {
 
     const currentUrl = typeof window !== "undefined" ? window.location.href : "";
 
+    const siteUrl = "https://antigravitymedical.com";
+
     return (
         <div className="min-h-screen bg-white text-slate-800" dir={lang === "ar" ? "rtl" : "ltr"}>
             <Navbar />
+
+            {/* Structured Data */}
+            <ArticleJsonLd
+                title={post.title}
+                description={post.excerpt}
+                url={`${siteUrl}/blog/${slug}`}
+                datePublished={post.date}
+                author={post.author}
+                image={post.image}
+            />
+            <BreadcrumbJsonLd
+                items={[
+                    { name: "Home", url: siteUrl },
+                    { name: "Blog", url: `${siteUrl}/blog` },
+                    { name: post.title, url: `${siteUrl}/blog/${slug}` },
+                ]}
+            />
 
             {/* Breadcrumb */}
             <div className="bg-slate-50 border-b border-slate-100">

@@ -55,6 +55,7 @@ export default function BlogCard({
     return (
         <Link
             href={`/blog/${slug}`}
+            aria-label={`Read article: ${title}`}
             className="group flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-xl hover:border-cyan-200 transition-all duration-300 hover:-translate-y-1 overflow-hidden"
         >
             {/* Image placeholder */}

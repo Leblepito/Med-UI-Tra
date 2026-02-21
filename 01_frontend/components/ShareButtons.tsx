@@ -67,14 +67,15 @@ export default function ShareButtons({ url, title }: ShareButtonsProps) {
     };
 
     return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" role="group" aria-label="Share buttons">
             {platforms.map((p) => (
                 <a
                     key={p.name}
                     href={p.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    title={p.name}
+                    title={`Share on ${p.name}`}
+                    aria-label={`Share on ${p.name}`}
                     className={`w-9 h-9 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 transition-all duration-200 ${p.color}`}
                 >
                     {p.icon}
@@ -82,7 +83,8 @@ export default function ShareButtons({ url, title }: ShareButtonsProps) {
             ))}
             <button
                 onClick={handleCopy}
-                title="Copy link"
+                title={copied ? "Link copied!" : "Copy link"}
+                aria-label={copied ? "Link copied" : "Copy link"}
                 className="w-9 h-9 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-cyan-500 hover:text-white transition-all duration-200"
             >
                 {copied ? (

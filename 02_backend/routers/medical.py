@@ -38,7 +38,7 @@ agent = MedicalAgent()
 class IntakeBody(BaseModel):
     full_name: str = Field(..., min_length=2, max_length=100)
     phone: str = Field(..., description="International phone format")
-    language: Literal["ru", "en", "tr", "th"] = "ru"
+    language: Literal["ru", "en", "tr", "th", "ar", "zh"] = "ru"
     procedure_interest: str = Field(..., min_length=1)
     urgency: Literal["routine", "soon", "urgent", "emergency"] = "routine"
     budget_usd: Optional[float] = Field(None, ge=0)

@@ -26,8 +26,10 @@ export default function BlogPage() {
     const [categories, setCategories] = useState<{ id: string; icon: string }[]>([]);
     const [activeCategory, setActiveCategory] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
 
     useEffect(() => {
+        setError(false);
         Promise.all([
             getBlogPosts(lang, activeCategory ?? undefined),
             getBlogCategories(),
@@ -35,7 +37,7 @@ export default function BlogPage() {
             setPosts(postsData.posts);
             setCategories(catsData.categories);
             setLoading(false);
-        }).catch(() => setLoading(false));
+        }).catch(() => { setError(true); setLoading(false); });
     }, [lang, activeCategory]);
 
     const getCategoryLabel = (catId: string) => {
@@ -101,7 +103,18 @@ export default function BlogPage() {
             {/* Blog Grid */}
             <section className="section-padding bg-slate-50">
                 <div className="container-main">
-                    {loading ? (
+                    {error ? (
+                        <div className="text-center py-16">
+                            <p className="text-slate-800 text-lg font-semibold mb-2">Something went wrong</p>
+                            <p className="text-slate-400 mb-4">Could not load blog posts. Please try again later.</p>
+                            <button
+                                onClick={() => { setLoading(true); setError(false); }}
+                                className="px-5 py-2 rounded-xl bg-cyan-600 text-white font-semibold hover:bg-cyan-500 transition-colors"
+                            >
+                                Try Again
+                            </button>
+                        </div>
+                    ) : loading ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                             {[1, 2, 3, 4, 5, 6].map((i) => (
                                 <div key={i} className="rounded-2xl bg-white border border-slate-200 overflow-hidden animate-pulse">

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 # Ensure skills are importable
@@ -58,7 +58,6 @@ def get_post(slug: str, language: str = Query("en")) -> dict:
     """Get a single blog post by slug."""
     post = get_post_by_slug(slug, language)
     if not post:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail=f"Blog post '{slug}' not found")
     return {"post": post}
 
