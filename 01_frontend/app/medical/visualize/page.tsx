@@ -67,6 +67,7 @@ function resizeImage(file: File, maxSize: number): Promise<string> {
 // ─── Before/After Slider Component ───────────────────────────────────────────
 function BeforeAfterSlider({ beforeSrc, afterSrc }: { beforeSrc: string; afterSrc: string }) {
     const [position, setPosition] = useState(50);
+    const [containerWidth, setContainerWidth] = useState(0);
     const containerRef = useRef<HTMLDivElement>(null);
     const isDragging = useRef(false);
 
@@ -93,6 +94,18 @@ function BeforeAfterSlider({ beforeSrc, afterSrc }: { beforeSrc: string; afterSr
         };
     }, [handleMove]);
 
+    useEffect(() => {
+        if (!containerRef.current) return;
+        const observer = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                setContainerWidth(entry.contentRect.width);
+            }
+        });
+        observer.observe(containerRef.current);
+        setContainerWidth(containerRef.current.offsetWidth);
+        return () => observer.disconnect();
+    }, []);
+
     return (
         <div
             ref={containerRef}
@@ -101,10 +114,12 @@ function BeforeAfterSlider({ beforeSrc, afterSrc }: { beforeSrc: string; afterSr
             onTouchStart={() => { isDragging.current = true; }}
         >
             {/* After image (full background) */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={afterSrc} alt="After" className="absolute inset-0 w-full h-full object-cover" draggable={false} />
             {/* Before image (clipped) */}
             <div className="absolute inset-0 overflow-hidden" style={{ width: `${position}%` }}>
-                <img src={beforeSrc} alt="Before" className="absolute inset-0 w-full h-full object-cover" style={{ minWidth: containerRef.current ? `${containerRef.current.offsetWidth}px` : "100%" }} draggable={false} />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={beforeSrc} alt="Before" className="absolute inset-0 w-full h-full object-cover" style={{ minWidth: containerWidth ? `${containerWidth}px` : "100%" }} draggable={false} />
             </div>
             {/* Slider line + handle */}
             <div className="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg" style={{ left: `${position}%` }}>
@@ -135,7 +150,7 @@ export default function VisualizePage() {
     const [vizId, setVizId] = useState("");
     const [resultUrl, setResultUrl] = useState("");
     const [error, setError] = useState("");
-    const [loading, setLoading] = useState(false);
+    const [, setLoading] = useState(false);
     const [postOpScore, setPostOpScore] = useState<number | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -149,7 +164,7 @@ export default function VisualizePage() {
             setQuestions(data.questions);
             setAnswers({});
             setStep(2);
-        } catch (err) {
+        } catch {
             setError(t("vizError"));
         }
     };
@@ -429,6 +444,7 @@ export default function VisualizePage() {
                             ) : (
                                 <div className="text-center">
                                     <div className="relative inline-block">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img
                                             src={imagePreview}
                                             alt="Preview"

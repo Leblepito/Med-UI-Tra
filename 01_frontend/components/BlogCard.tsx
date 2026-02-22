@@ -47,7 +47,7 @@ export default function BlogCard({
     date,
     readTime,
     readTimeLabel,
-    image,
+    image: _image,
 }: BlogCardProps) {
     const colorCls = CATEGORY_COLORS[category] || "bg-slate-100 text-slate-700";
     const icon = CATEGORY_ICONS[category] || "📝";

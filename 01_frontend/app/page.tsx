@@ -233,7 +233,7 @@ export default function HomePage() {
     if (!langChosen) {
         return (
             <LanguageSelectScreen
-                onSelect={(l) => {
+                onSelect={() => {
                     setLangChosen(true);
                 }}
             />
