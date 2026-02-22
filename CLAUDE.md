@@ -25,16 +25,19 @@ Med-UI-Tra/
 │
 ├── 02_backend/           # FastAPI (Python 3.11)
 │   ├── main.py           # App entrypoint — lifespan, CORS, rate limiting, router registration
-│   ├── routers/          # API route modules
+│   ├── auth.py           # JWT authentication module (create/verify tokens, password hashing)
+│   ├── routers/          # API route modules (8 routers, 53 endpoints)
+│   │   ├── auth.py       # /api/auth/* — login, register, me, password change
 │   │   ├── medical.py    # /api/medical/* — intake, patients, hospitals, commissions
 │   │   ├── travel.py     # /api/travel/* — travel options, destinations
 │   │   ├── chat.py       # /api/chat/* — Claude-powered AI chatbot sessions
 │   │   ├── marketing.py  # /api/marketing/* — SEO, content, campaigns, leads, publishing
 │   │   ├── blog.py       # /api/blog/* — blog posts, categories, featured
-│   │   └── meshy.py      # /api/meshy/* — before/after AI visualization (Meshy.ai)
+│   │   ├── meshy.py      # /api/meshy/* — before/after AI visualization (Meshy.ai)
+│   │   └── notification.py # /api/notifications/* — WhatsApp, Telegram, LINE messaging
 │   ├── database/
 │   │   ├── connection.py # SQLAlchemy 2.0 engine, SessionLocal, get_db dependency
-│   │   ├── models.py     # 10 ORM models (Hospital, Patient, TravelRequest, Campaign, Lead, etc.)
+│   │   ├── models.py     # 11 ORM models (Hospital, Patient, TravelRequest, Campaign, Lead, User, etc.)
 │   │   └── seed.py       # Auto-seed partner hospitals & demo data
 │   ├── models/           # Pydantic request/response schemas
 │   │   ├── medical.py    # Medical intake schemas
@@ -74,7 +77,8 @@ Med-UI-Tra/
 │   │   ├── calendar_sync.py    # Calendar integration (planned)
 │   │   ├── region_profiles.py  # Region-specific marketing profiles
 │   │   ├── blog_seed_data.py   # Static blog content (multi-language)
-│   │   └── seo_content_engine.py # Extended SEO content engine
+│   │   ├── seo_content_engine.py # Extended SEO content engine
+│   │   └── notification.py    # Unified WhatsApp/Telegram/LINE notification service
 │   ├── memory/                 # Agent memory/context storage (placeholder)
 │   └── logs/                   # AGENT_SESSION.log (auto-created, gitignored)
 │
@@ -102,9 +106,11 @@ Med-UI-Tra/
 - **Database:** PostgreSQL via SQLAlchemy 2.0 + psycopg2-binary
 - **Migrations:** Alembic
 - **AI SDK:** anthropic (Claude API) for chat agent
+- **Auth:** JWT via python-jose[cryptography] + bcrypt via passlib
 - **Rate limiting:** slowapi (optional, graceful fallback)
-- **HTTP client:** httpx (for internal API calls from chat agent)
-- **Env management:** python-dotenv
+- **HTTP client:** httpx (for internal API calls, chat agent, notification APIs)
+- **Messaging:** WhatsApp Business Cloud API, Telegram Bot API, LINE Messaging API
+- **Env management:** python-dotenv (load_dotenv in connection.py + main.py)
 
 ### AI System (04_ai_agents)
 - **Classification:** Rule-based keyword matching (91 medical, 63 travel, 50 factory, ~50 marketing keywords)
@@ -149,20 +155,30 @@ npm run dev                   # Starts on http://localhost:3000
 | `ANTHROPIC_API_KEY` | Production | Claude API key (chat agent) |
 | `MESHY_API_KEY` | Production | Meshy.ai API key (visualization) |
 | `ENVIRONMENT` | Optional | `development` (default) or `production` |
+| `API_SECRET_KEY` | Production | JWT signing secret |
+| `ADMIN_EMAIL` | Optional | Auto-seed admin user email on startup |
+| `ADMIN_PASSWORD` | Optional | Auto-seed admin user password on startup |
 | `ALLOWED_ORIGINS` | Optional | CORS origins (comma-separated) |
-| `ADMIN_SECRET` | Production | Secret for admin seed endpoint |
+| `WHATSAPP_TOKEN` | Optional | WhatsApp Business Cloud API token |
+| `WHATSAPP_PHONE_ID` | Optional | WhatsApp Business phone number ID |
+| `TELEGRAM_BOT_TOKEN` | Optional | Telegram Bot API token |
+| `TELEGRAM_COORDINATOR_CHAT_ID` | Optional | Coordinator Telegram chat ID |
+| `LINE_CHANNEL_ACCESS_TOKEN` | Optional | LINE Messaging API channel token |
+| `LINE_CHANNEL_SECRET` | Optional | LINE webhook signature verification |
 | `BACKEND_URL` | Frontend | Backend URL for API proxy (default: http://localhost:8000) |
 
 ## API Architecture
 
-### Sector Routing
+### Sector Routing (8 routers, 53 endpoints)
 All incoming requests can be classified via `POST /api/classify` which routes to:
+- **Auth** (`/api/auth/*`) — JWT login, register, profile, password change
 - **Medical** (`/api/medical/*`) — Patient intake, hospital matching, commission tracking
 - **Travel** (`/api/travel/*`) — Hotel/restaurant booking coordination
 - **Marketing** (`/api/marketing/*`) — SEO, content generation, campaigns, analytics
 - **Chat** (`/api/chat/*`) — AI-powered conversational medical secretary
 - **Blog** (`/api/blog/*`) — Multi-language blog content
 - **Meshy** (`/api/meshy/*`) — AI visualization (before/after)
+- **Notifications** (`/api/notifications/*`) — WhatsApp, Telegram, LINE messaging + webhooks
 
 ### Key API Endpoints
 | Method | Path | Description |
@@ -180,8 +196,16 @@ All incoming requests can be classified via `POST /api/classify` which routes to
 | POST | `/api/marketing/campaign/plan` | Create marketing campaign |
 | POST | `/api/meshy/visualize` | Start AI visualization job |
 | GET | `/api/blog/posts` | List blog posts (paginated, filterable) |
+| POST | `/api/auth/login` | Email + password → JWT token |
+| POST | `/api/auth/register` | Create new user (admin-only) |
+| GET | `/api/auth/me` | Current user info (JWT required) |
+| POST | `/api/notifications/send` | Manual notification (admin-only) |
+| GET | `/api/notifications/channels` | Active messaging channels |
+| POST | `/api/notifications/webhook/whatsapp` | WhatsApp incoming webhook |
+| POST | `/api/notifications/webhook/telegram` | Telegram incoming webhook |
+| POST | `/api/notifications/webhook/line` | LINE incoming webhook |
 
-## Database Schema (PostgreSQL, 10 tables)
+## Database Schema (PostgreSQL, 11 tables)
 
 1. **hospitals** — Partner hospital registry (Turkey + Thailand)
 2. **patients** — Medical patient intake records with hospital matching & commission
@@ -193,8 +217,9 @@ All incoming requests can be classified via `POST /api/classify` which routes to
 8. **chat_sessions** — AI chatbot session metadata
 9. **chat_messages** — Chat message history (user + assistant)
 10. **visualizations** — Meshy.ai before/after visualization records
+11. **users** — Auth users with roles (admin, staff, coordinator), bcrypt passwords
 
-Auto-seeding: On startup, if `hospitals` table is empty, partner hospitals are auto-seeded via `database/seed.py`.
+Auto-seeding: On startup, hospitals are auto-seeded if empty. Admin user is auto-seeded if `ADMIN_EMAIL` + `ADMIN_PASSWORD` env vars are set.
 
 ## Agent System Architecture
 
@@ -273,25 +298,29 @@ Each agent follows this pattern:
 
 ### Completed
 - AI classification engine (4 sectors, multilingual keyword matching)
-- Medical agent (full pipeline: intake → hospital matching → commission)
+- Medical agent (full pipeline: intake → hospital matching → commission → notification)
 - Travel agent (pricing, availability, coordinator messages)
 - Marketing agent (SEO, content, campaigns, analytics, leads, publishing)
 - Chat agent (Claude API with tool-use)
-- Meshy.ai visualization integration
-- Blog system (multi-language seed data)
-- Multi-language routing (6 languages)
-- FastAPI backend with PostgreSQL
+- Meshy.ai visualization integration (before/after, 8 procedures)
+- Blog system (10 posts × 6 languages, SEO-optimized)
+- Multi-language routing (6 languages: TR, EN, RU, TH, AR, ZH)
+- JWT authentication system (login, register, role-based access)
+- Multi-channel notifications (WhatsApp Business + Telegram Bot + LINE Messaging)
+- Region-aware notification routing (TR/EU→WA, RU→TG, TH/Asia→LINE)
+- Medical gallery with procedure photos
+- FastAPI backend with PostgreSQL (11 tables, 53 endpoints, 8 routers)
 - Next.js frontend with medical intake form
 - Railway deployment configs
+- Comprehensive README with architecture diagram
 
 ### Planned / In Progress
-- [ ] Firebase/Firestore integration (legacy, mostly replaced by PostgreSQL)
-- [ ] Authentication system
 - [ ] Travel & Factory UI pages
 - [ ] Calendar MCP integration
 - [ ] Real OTA channel sync (Booking.com, Airbnb)
 - [ ] Factory agent activation (currently dormant)
 - [ ] Real Meshy.ai image comparison (currently placeholder similarity score)
+- [ ] Admin dashboard frontend (users, patients, notifications management)
 
 ## Important Notes for AI Assistants
 
@@ -305,3 +334,7 @@ Each agent follows this pattern:
 8. **Commission rates are internal** — Chat agent system prompt explicitly says never reveal commission rates to users.
 9. **Rate limiting** — Medical intake: 10/min per IP, Chat messages: 20/min per IP, Meshy visualization: 1/day per IP, 20/day global.
 10. **Blog content is static** — `blog_seed_data.py` contains hardcoded multi-language blog posts. No dynamic generation yet.
+11. **Auth roles** — 3 roles: `admin` (full access), `staff` (basic auth), `coordinator` (basic auth). Protected endpoints: `POST /api/blog/generate` (admin), `PATCH /api/medical/patient/status` (auth), `POST /api/admin/seed` (admin), `POST /api/notifications/send` (admin), `POST /api/notifications/test` (admin).
+12. **Notification fire-and-forget** — Medical agent sends notifications after intake asynchronously. Notification failures never block the intake response.
+13. **bcrypt compatibility** — Use bcrypt 4.x (not 5.x) due to passlib compatibility. Pinned in requirements.
+14. **dotenv loading** — `load_dotenv()` is called in both `connection.py` and `main.py` to ensure env vars are available before any imports.
