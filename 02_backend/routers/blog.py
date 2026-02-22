@@ -6,8 +6,10 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+
+from auth import require_admin
 
 # Ensure skills are importable
 _skills_path = Path(__file__).parent.parent.parent / "04_ai_agents" / "skills"
@@ -98,7 +100,7 @@ class GenerateBlogRequest(BaseModel):
 
 
 @router.post("/generate")
-def generate_blog(req: GenerateBlogRequest) -> dict:
+def generate_blog(req: GenerateBlogRequest, _admin=Depends(require_admin)) -> dict:
     """AI-generate a new blog post (admin endpoint). Placeholder for future AI integration."""
     return {
         "status": "planned",

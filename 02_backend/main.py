@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 import sys
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -66,6 +66,9 @@ from routers.marketing import router as marketing_router  # noqa: E402
 from routers.chat import router as chat_router  # noqa: E402
 from routers.blog import router as blog_router  # noqa: E402
 from routers.meshy import router as meshy_router  # noqa: E402
+from routers.auth import router as auth_router  # noqa: E402
+from routers.notification import router as notification_router  # noqa: E402
+from auth import require_admin  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Rate limiting
@@ -108,6 +111,26 @@ async def lifespan(app: FastAPI):
                 logger.info(f"Auto-seeded {seeded} hospitals.")
         except Exception as e:
             logger.warning(f"Auto-seed skipped: {e}")
+
+        # Auto-seed admin user if ADMIN_EMAIL is set and user doesn't exist
+        try:
+            admin_email = os.getenv("ADMIN_EMAIL")
+            admin_password = os.getenv("ADMIN_PASSWORD")
+            if admin_email and admin_password:
+                existing = session.query(models.User).filter_by(email=admin_email).first()
+                if not existing:
+                    from auth import get_password_hash
+                    admin_user = models.User(
+                        email=admin_email,
+                        hashed_password=get_password_hash(admin_password),
+                        full_name="Admin",
+                        role="admin",
+                    )
+                    session.add(admin_user)
+                    session.commit()
+                    logger.info(f"Admin user seeded: {admin_email}")
+        except Exception as e:
+            logger.warning(f"Admin seed skipped: {e}")
         finally:
             session.close()
     except Exception as e:
@@ -182,12 +205,14 @@ app.add_middleware(
 orchestrator = AgentRouter()
 
 # Register routers
+app.include_router(auth_router)
 app.include_router(medical_router)
 app.include_router(travel_router)
 app.include_router(marketing_router)
 app.include_router(chat_router)
 app.include_router(blog_router)
 app.include_router(meshy_router)
+app.include_router(notification_router)
 
 
 class InboundRequest(BaseModel):
@@ -208,16 +233,8 @@ def classify(req: InboundRequest) -> dict:
 
 
 @app.post("/api/admin/seed")
-def run_seed(secret: str = "") -> dict:
-    """One-time DB seeder — requires ADMIN_SECRET."""
-    admin_secret = os.getenv("ADMIN_SECRET")
-    if _is_production:
-        if not admin_secret:
-            from fastapi import HTTPException
-            raise HTTPException(status_code=500, detail="ADMIN_SECRET env var not configured")
-        if secret != admin_secret:
-            from fastapi import HTTPException
-            raise HTTPException(status_code=403, detail="Forbidden")
+def run_seed(_admin=Depends(require_admin)) -> dict:
+    """One-time DB seeder — requires admin JWT."""
     from database.seed import seed_hospitals, seed_demo_patients
     from database.connection import SessionLocal
     session = SessionLocal()

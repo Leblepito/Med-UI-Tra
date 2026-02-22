@@ -1,6 +1,6 @@
 """
 AntiGravity Ventures — SQLAlchemy ORM Models
-10 tables: hospitals, patients, travel_requests, campaigns, leads, publish_queue, conversions, chat_sessions, chat_messages, visualizations.
+11 tables: hospitals, patients, travel_requests, campaigns, leads, publish_queue, conversions, chat_sessions, chat_messages, visualizations, users.
 """
 from __future__ import annotations
 
@@ -344,4 +344,32 @@ class Visualization(Base):
             "output_image_url": self.output_image_url,
             "similarity_score": float(self.similarity_score) if self.similarity_score else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ---------------------------------------------------------------------------
+# 11. users (Auth)
+# ---------------------------------------------------------------------------
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    full_name = Column(String(200), nullable=True)
+    role = Column(String(20), nullable=False, server_default="staff")  # admin | staff | coordinator
+    is_active = Column(Boolean, nullable=False, server_default="true")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "email": self.email,
+            "full_name": self.full_name,
+            "role": self.role,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
