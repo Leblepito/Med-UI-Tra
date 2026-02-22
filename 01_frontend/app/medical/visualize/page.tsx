@@ -147,6 +147,7 @@ export default function VisualizePage() {
     const [answers, setAnswers] = useState<Record<string, string>>({});
     const [imageBase64, setImageBase64] = useState("");
     const [imagePreview, setImagePreview] = useState("");
+    const cancelledRef = useRef(false);
     const [vizId, setVizId] = useState("");
     const [resultUrl, setResultUrl] = useState("");
     const [error, setError] = useState("");
@@ -223,15 +224,23 @@ export default function VisualizePage() {
         }
     };
 
+    // Cleanup polling on unmount
+    useEffect(() => {
+        return () => { cancelledRef.current = true; };
+    }, []);
+
     // Polling
     const pollStatus = async (id: string) => {
         let attempts = 0;
         const maxAttempts = 60; // 3 minutes max
+        cancelledRef.current = false;
 
         const poll = async () => {
+            if (cancelledRef.current) return;
             attempts++;
             try {
                 const status = await checkVisualizationStatus(id);
+                if (cancelledRef.current) return;
                 if (status.status === "succeeded" && status.output_image_url) {
                     setResultUrl(status.output_image_url);
                     setLoading(false);
@@ -248,6 +257,7 @@ export default function VisualizePage() {
                     setStep(3);
                 }
             } catch {
+                if (cancelledRef.current) return;
                 if (attempts < maxAttempts) {
                     setTimeout(poll, 3000);
                 } else {

@@ -11,6 +11,18 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 import sys
 
+from dotenv import load_dotenv
+
+# Load .env before anything reads env vars
+load_dotenv(Path(__file__).parent / ".env", override=False)
+
+# Logging setup
+logging.basicConfig(
+    level=logging.DEBUG if os.getenv("ENVIRONMENT", "development") != "production" else logging.INFO,
+    format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
+    datefmt="%H:%M:%S",
+)
+
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -28,7 +40,7 @@ logger = logging.getLogger("thaiturk")
 _env = os.getenv("ENVIRONMENT", "development")
 _is_production = _env == "production"
 
-_REQUIRED_ENV_VARS_PROD = ["DATABASE_URL", "ANTHROPIC_API_KEY", "MESHY_API_KEY"]
+_REQUIRED_ENV_VARS_PROD = ["DATABASE_URL", "ANTHROPIC_API_KEY", "API_SECRET_KEY"]
 
 
 def _validate_env() -> None:
@@ -141,7 +153,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AntiGravity ThaiTurk API",
     description="Medical · Travel · Factory · Marketing — AI-powered routing platform",
-    version="1.2.0",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -223,7 +235,7 @@ class InboundRequest(BaseModel):
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "version": "1.2.0", "environment": _env}
+    return {"status": "ok", "version": "2.0.0", "environment": _env}
 
 
 @app.post("/api/classify")

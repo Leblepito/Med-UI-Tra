@@ -6,10 +6,16 @@ Railway-compatible (DATABASE_URL env var).
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Generator
 
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+
+# Load .env from backend dir (first call wins — safe to call multiple times)
+_backend_dir = Path(__file__).parent.parent
+load_dotenv(_backend_dir / ".env", override=False)
 
 
 class Base(DeclarativeBase):
