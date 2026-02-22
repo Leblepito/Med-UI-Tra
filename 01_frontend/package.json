@@ -9,7 +9,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "dev:full": "concurrently \"npm run dev\" \"cd ../02_backend && uvicorn main:app --host 0.0.0.0 --port 8000 --reload\""
   },
   "dependencies": {
     "next": "^16.1.6",
