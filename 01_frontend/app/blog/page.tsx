@@ -29,15 +29,24 @@ export default function BlogPage() {
     const [error, setError] = useState(false);
 
     useEffect(() => {
-        setError(false);
+        let cancelled = false;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setLoading(true);
         Promise.all([
             getBlogPosts(lang, activeCategory ?? undefined),
             getBlogCategories(),
         ]).then(([postsData, catsData]) => {
+            if (cancelled) return;
             setPosts(postsData.posts);
             setCategories(catsData.categories);
+            setError(false);
             setLoading(false);
-        }).catch(() => { setError(true); setLoading(false); });
+        }).catch(() => {
+            if (cancelled) return;
+            setError(true);
+            setLoading(false);
+        });
+        return () => { cancelled = true; };
     }, [lang, activeCategory]);
 
     const getCategoryLabel = (catId: string) => {

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import MedBot from "../../components/MedBot";
 
 export const metadata: Metadata = {
     title: "Medical Tourism — Rhinoplasty, Hair Transplant, Dental & More",
@@ -13,5 +14,10 @@ export const metadata: Metadata = {
 };
 
 export default function MedicalLayout({ children }: { children: React.ReactNode }) {
-    return children;
+    return (
+        <>
+            {children}
+            <MedBot />
+        </>
+    );
 }

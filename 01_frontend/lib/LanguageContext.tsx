@@ -42,6 +42,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const stored = localStorage.getItem(STORAGE_KEY) as Language | null;
         if (stored && stored in LANGUAGES) {
+            // Intentional: hydrate from localStorage on mount — runs once, not cascading
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setLangState(stored);
         }
         setMounted(true);

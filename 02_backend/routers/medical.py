@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 from typing import Optional, Literal
 
+from auth import get_current_user
 from database.connection import get_db
 
 # Rate limiting (graceful)
@@ -94,8 +95,8 @@ def get_patient(patient_id: str, db: Session = Depends(get_db)) -> dict:
 
 
 @router.patch("/patient/status")
-def update_patient_status(body: StatusUpdateBody, db: Session = Depends(get_db)) -> dict:
-    """Hasta durumunu günceller."""
+def update_patient_status(body: StatusUpdateBody, db: Session = Depends(get_db), _user=Depends(get_current_user)) -> dict:
+    """Hasta durumunu günceller (requires authentication)."""
     return agent.update_status(body.patient_id, body.new_status, db=db)
 
 

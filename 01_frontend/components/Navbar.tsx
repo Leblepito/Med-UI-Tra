@@ -15,6 +15,7 @@ export default function Navbar() {
         { href: "/", label: t("navHome"), icon: "🏠" },
         { href: "/medical", label: t("navMedical"), icon: "🏥" },
         { href: "/medical/visualize", label: t("navVisualize"), icon: "🔮" },
+        { href: "/medical/gallery", label: t("navGallery"), icon: "🖼️" },
         { href: "/travel", label: t("navTravel"), icon: "🏖️" },
         { href: "/blog", label: t("blogNavLabel"), icon: "📝" },
         { href: "/factory", label: t("navFactory"), icon: "🏭", soon: true },
@@ -44,8 +45,8 @@ export default function Navbar() {
                                 key={href}
                                 href={href}
                                 className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${active
-                                        ? "bg-sky-50 text-sky-700"
-                                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                                    ? "bg-sky-50 text-sky-700"
+                                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                                     }`}
                             >
                                 {label}

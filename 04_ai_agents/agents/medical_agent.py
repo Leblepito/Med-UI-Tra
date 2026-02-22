@@ -12,6 +12,7 @@ Sorumluluklar:
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from datetime import date, datetime
@@ -34,6 +35,18 @@ try:
     _DB_AVAILABLE = True
 except ImportError:
     _DB_AVAILABLE = False
+
+# Optional notification imports
+_skills_path = str(Path(__file__).parent.parent / "skills")
+if _skills_path not in sys.path:
+    sys.path.insert(0, _skills_path)
+try:
+    from notification import NotificationService
+    _NOTIFIER = NotificationService()
+    _NOTIFICATIONS_AVAILABLE = True
+except ImportError:
+    _NOTIFIER = None
+    _NOTIFICATIONS_AVAILABLE = False
 
 
 # ---------------------------------------------------------------------------
@@ -291,7 +304,25 @@ class MedicalAgent:
             language=lang,
         )
 
-        # 6. Sonraki adımlar
+        # 6. Fire-and-forget notifications (coordinator + patient)
+        if _NOTIFICATIONS_AVAILABLE and _NOTIFIER:
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # We're inside an async context (FastAPI) — schedule as task
+                    asyncio.ensure_future(self._send_notifications(intake_data, patient_id, coordinator_msg, lang))
+                else:
+                    loop.run_until_complete(self._send_notifications(intake_data, patient_id, coordinator_msg, lang))
+            except RuntimeError:
+                # No event loop — create one (standalone usage)
+                try:
+                    asyncio.run(self._send_notifications(intake_data, patient_id, coordinator_msg, lang))
+                except Exception as e:
+                    logger.warning(f"[MedicalAgent] Notification failed (no loop): {e}")
+            except Exception as e:
+                logger.warning(f"[MedicalAgent] Notification fire-and-forget failed: {e}")
+
+        # 7. Sonraki adımlar
         next_steps = self._build_next_steps(category, hospital, intake_data)
 
         return {
@@ -398,6 +429,23 @@ class MedicalAgent:
     # ----------------------------------------------------------------
     # Private Helpers
     # ----------------------------------------------------------------
+
+    async def _send_notifications(self, intake_data: dict, patient_id: str, coordinator_msg: str, lang: str) -> None:
+        """Fire-and-forget: send coordinator + patient notifications."""
+        try:
+            patient_data = {**intake_data, "patient_id": patient_id}
+            await _NOTIFIER.notify_coordinator(patient_data)
+            logger.info(f"[MedicalAgent] Coordinator notification sent for {patient_id}")
+        except Exception as e:
+            logger.warning(f"[MedicalAgent] Coordinator notification failed: {e}")
+
+        try:
+            phone = intake_data.get("phone", "")
+            if phone:
+                await _NOTIFIER.notify_patient(phone, coordinator_msg, language=lang)
+                logger.info(f"[MedicalAgent] Patient notification sent for {patient_id}")
+        except Exception as e:
+            logger.warning(f"[MedicalAgent] Patient notification failed: {e}")
 
     def _classify_procedure(self, text: str) -> str:
         text_lower = text.lower()
