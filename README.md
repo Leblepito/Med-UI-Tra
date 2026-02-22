@@ -1,4 +1,4 @@
-# ThaiTurk
+# Med-UI-Tra
 
 AI-powered multi-sector referral platform — medical tourism, travel bookings, and B2B manufacturing.
 
